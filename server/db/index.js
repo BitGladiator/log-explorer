@@ -1,0 +1,34 @@
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+  keepAlive: true,
+  ssl: process.env.NODE_ENV === 'production'
+    ? { rejectUnauthorized: false }
+    : false,
+});
+
+pool.on('connect', () => {
+  if (process.env.NODE_ENV !== 'test') {
+    console.log('DB connection established');
+  }
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected DB error', err);
+  process.exit(-1);
+});
+
+module.exports = {
+  query: (text, params) => pool.query(text, params),
+  getClient: () => pool.connect(),
+  end: () => pool.end(),
+  getPoolStats: () => ({
+    total: pool.totalCount,
+    idle: pool.idleCount,
+    waiting: pool.waitingCount,
+  }),
+};
