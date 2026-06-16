@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logexplorer-server
+  namespace: logexplorer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: logexplorer-server
+  template:
+    metadata:
+      labels:
+        app: logexplorer-server
+    spec:
+      containers:
+        - name: server
+          image: logexplorer-server:latest
+          ports:
+            - containerPort: 5500
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "5500"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: logexplorer-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: logexplorer-secrets
+                  key: REDIS_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: logexplorer-secrets
+                  key: JWT_SECRET
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 5500
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5500
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logexplorer-server
+  namespace: logexplorer
+spec:
+  selector:
+    app: logexplorer-server
+  ports:
+    - port: 5500
+      targetPort: 5500
