@@ -46,7 +46,7 @@ exports.up = async (pgm) => {
       service: { type: 'varchar(100)' },
       host: { type: 'varchar(255)' },
       timestamp: { type: 'timestamptz', notNull: true, default: pgm.func('NOW()') },
-      metadata: { type: 'jsonb', default: "'{}'" },
+      metadata: { type: 'jsonb', default: '{}' },
       search_vector: { type: 'tsvector' },
     });
   
