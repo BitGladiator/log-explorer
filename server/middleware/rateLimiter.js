@@ -8,6 +8,7 @@ const makeStore = (prefix) =>
     prefix,
   });
 
+const isDev = process.env.NODE_ENV === 'development';
 
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -16,7 +17,7 @@ const globalLimiter = rateLimit({
   legacyHeaders: false,
   store: makeStore('rl:global:'),
   message: { error: 'Too many requests' },
-  skip: (req) => req.path === '/api/health',
+  skip: (req) => isDev || req.path === '/api/health',
 });
 
 
@@ -25,6 +26,7 @@ const authLimiter = rateLimit({
   max: 10,
   store: makeStore('rl:auth:'),
   message: { error: 'Too many auth attempts' },
+  skip: () => isDev,
 });
 
 
@@ -35,6 +37,7 @@ const ingestionLimiter = rateLimit({
   store: makeStore('rl:ingest:'),
   keyGenerator: (req) => req.headers['x-api-key'] || req.ip,
   message: { error: 'Ingestion rate limit exceeded' },
+  skip: () => isDev,
 });
 
 module.exports = { globalLimiter, authLimiter, ingestionLimiter };

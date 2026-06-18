@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth.jsx";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import ProjectLogs from "./pages/ProjectLogs.jsx";
+import ProjectSettings from "./pages/ProjectSettings.jsx";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -25,6 +27,22 @@ const App = () => {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId"
+        element={
+          <ProtectedRoute>
+            <ProjectLogs />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/settings"
+        element={
+          <ProtectedRoute>
+            <ProjectSettings />
           </ProtectedRoute>
         }
       />

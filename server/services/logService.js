@@ -90,7 +90,7 @@ const ingestLogs = async (projectId, logs) => {
   }
 };
 
-const generateApiKey = () => `lex_${crypto.randomBytes(32).toString("hex")}`;
+const generateApiKey = () => `lex_${crypto.randomBytes(30).toString("hex")}`;
 
 const validateApiKey = async (apiKey) => {
   const cacheKey = `apikey:${apiKey}`;
