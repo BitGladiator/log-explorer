@@ -36,3 +36,16 @@ export const getLogStats = (projectId, params = {}) => {
   const query = new URLSearchParams(params).toString();
   return apiFetch(`/logs/${projectId}/stats?${query}`);
 };
+export const naturalQuery = (projectId, query) =>
+  apiFetch(`/query/${projectId}/natural`, {
+    method: "POST",
+    body: JSON.stringify({ query }),
+  });
+
+export const getClusters = (projectId, params = {}) => {
+  const q = new URLSearchParams(params).toString();
+  return apiFetch(`/clusters/${projectId}?${q}`);
+};
+
+export const analyzeCluster = (projectId, clusterId) =>
+  apiFetch(`/clusters/${projectId}/${clusterId}/analyze`, { method: "POST" });
