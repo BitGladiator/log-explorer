@@ -6,7 +6,7 @@ const {
 } = require("../observability/metrics");
 const logger = require("../observability/logger");
 const crypto = require("crypto");
-
+const { updateClusters } = require('./clusteringService');
 const validateLog = (log) => {
   const VALID_LEVELS = ["debug", "info", "warn", "error", "fatal"];
   const errors = [];
@@ -75,13 +75,16 @@ const ingestLogs = async (projectId, logs) => {
       const { io } = require("../index");
       if (io) {
         io.to(`project:${projectId}`).emit("new_logs", insertedLogs);
+        updateClusters(projectId, shapedLogs).catch((err) =>
+          logger.error('Background clustering failed', { error: err.message })
+        );
       }
     } catch (err) {
       logger.error("Failed to emit logs via WebSocket", { error: err.message });
     }
 
     end();
-    logger.debug("Logs ingested", { projectId, count: logs.length });
+    loggner.debug("Logs igested", { projectId, count: logs.length });
     return { ingested: logs.length };
   } catch (err) {
     end();

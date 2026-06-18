@@ -20,6 +20,7 @@ const projectRoutes = require("./routes/projects");
 
 const app = express();
 const httpServer = createServer(app);
+const queryRoutes = require('./routes/query');
 
 try {
   logger.info("Running migrations...");
@@ -74,6 +75,7 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/ingest", ingestRoutes);
 app.use("/api/logs", logsRoutes);
 app.use("/api/projects", projectRoutes);
+app.use('/api/query', queryRoutes);
 
 
 app.get("/metrics", async (req, res) => {
