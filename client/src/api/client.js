@@ -1,24 +1,43 @@
 const BASE_URL = import.meta.env.VITE_API_URL;
 
+const TOKEN_KEY = 'auth_token';
+export const getStoredToken = () => localStorage.getItem(TOKEN_KEY);
+export const setStoredToken = (t) => localStorage.setItem(TOKEN_KEY, t);
+export const removeStoredToken = () => localStorage.removeItem(TOKEN_KEY);
+
 const apiFetch = async (path, options = {}) => {
+  const token = getStoredToken();
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const res = await fetch(`${BASE_URL}/api${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...options.headers },
-    credentials: "include",
+    headers,
+    credentials: 'include',
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: "Request failed" }));
+    const error = await res.json().catch(() => ({ error: 'Request failed' }));
     throw error;
   }
   return res.json();
 };
 
-export const register = (data) =>
-  apiFetch("/auth/register", { method: "POST", body: JSON.stringify(data) });
-export const login = (data) =>
-  apiFetch("/auth/login", { method: "POST", body: JSON.stringify(data) });
-export const logout = () => apiFetch("/auth/logout", { method: "POST" });
-export const getMe = () => apiFetch("/auth/me");
+export const register = async (data) => {
+  const result = await apiFetch('/auth/register', { method: 'POST', body: JSON.stringify(data) });
+  if (result.token) setStoredToken(result.token);
+  return result;
+};
+export const login = async (data) => {
+  const result = await apiFetch('/auth/login', { method: 'POST', body: JSON.stringify(data) });
+  if (result.token) setStoredToken(result.token);
+  return result;
+};
+export const logout = async () => {
+  removeStoredToken();
+  return apiFetch('/auth/logout', { method: 'POST' });
+};
+export const getMe = () => apiFetch('/auth/me');
+
 
 export const getProjects = () => apiFetch("/projects");
 export const createProject = (data) =>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
+import { getStoredToken } from '../api/client';
 
 const useLogStream = (projectId, isLive) => {
   const [streamedLogs, setStreamedLogs] = useState([]);
@@ -10,6 +11,7 @@ const useLogStream = (projectId, isLive) => {
 
     socketRef.current = io(import.meta.env.VITE_API_URL, {
       withCredentials: true,
+      auth: { token: getStoredToken() },
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 10,

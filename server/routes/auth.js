@@ -50,6 +50,7 @@ router.post('/register', async (req, res) => {
     });
 
     res.status(201).json({
+      token,
       id: rows[0].id,
       email: rows[0].email,
       name: rows[0].name,
@@ -96,6 +97,7 @@ router.post('/login', async (req, res) => {
     });
 
     res.json({
+      token,
       id: rows[0].id,
       email: rows[0].email,
       name: rows[0].name,
@@ -117,7 +119,14 @@ router.post('/logout', (req, res) => {
 
 
 router.get('/me', async (req, res) => {
-  const token = req.cookies?.token;
+  let token = null;
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  } else {
+    token = req.cookies?.token;
+  }
+
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
 
   try {
