@@ -21,7 +21,7 @@ const projectRoutes = require("./routes/projects");
 const app = express();
 const httpServer = createServer(app);
 const queryRoutes = require('./routes/query');
-
+const clusterRoutes = require('./routes/clusters');
 try {
   logger.info("Running migrations...");
   execSync("npm run migrate:up", { cwd: __dirname, stdio: "inherit" });
@@ -76,7 +76,7 @@ app.use("/api/ingest", ingestRoutes);
 app.use("/api/logs", logsRoutes);
 app.use("/api/projects", projectRoutes);
 app.use('/api/query', queryRoutes);
-
+app.use('/api/clusters', clusterRoutes);
 
 app.get("/metrics", async (req, res) => {
   res.setHeader("Content-Type", register.contentType);

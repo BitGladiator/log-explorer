@@ -1,3 +1,4 @@
 *node_modules
 *.env
 *.dockerignore
+/deployment_guide.md

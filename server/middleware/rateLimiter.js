@@ -2,10 +2,12 @@ const rateLimit = require('express-rate-limit');
 const { RedisStore } = require('rate-limit-redis');
 const redis = require('../db/redis');
 
+const redisPrefix = process.env.REDIS_PREFIX || '';
+
 const makeStore = (prefix) =>
   new RedisStore({
     sendCommand: (...args) => redis.call(...args),
-    prefix,
+    prefix: `${redisPrefix}${prefix}`,
   });
 
 const isDev = process.env.NODE_ENV === 'development';

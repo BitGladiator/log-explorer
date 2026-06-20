@@ -84,7 +84,7 @@ const ingestLogs = async (projectId, logs) => {
     }
 
     end();
-    loggner.debug("Logs igested", { projectId, count: logs.length });
+    logger.debug("Logs ingested", { projectId, count: logs.length });
     return { ingested: logs.length };
   } catch (err) {
     end();
