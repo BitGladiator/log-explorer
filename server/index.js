@@ -31,13 +31,32 @@ try {
   process.exit(1);
 }
 
-const allowedOrigins = [process.env.CLIENT_URL, "http://localhost:5173"].filter(
-  Boolean
-);
+const allowedOrigins = [process.env.CLIENT_URL, "http://localhost:5173"]
+  .filter(Boolean)
+  .map(origin => origin.trim().replace(/\/$/, ""));
 
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const normalizedOrigin = origin.trim().toLowerCase().replace(/\/$/, "");
+    const isAllowed = allowedOrigins.some(
+      (allowed) => allowed.toLowerCase() === normalizedOrigin
+    );
+    if (isAllowed || process.env.NODE_ENV !== "production") {
+      callback(null, true);
+    } else {
+      logger.warn("CORS blocked request", { origin });
+      callback(null, false);
+    }
+  },
+  credentials: true,
+};
+
+
+app.use(cors(corsOptions));
 
 const io = new Server(httpServer, {
-  cors: { origin: allowedOrigins, credentials: true },
+  cors: corsOptions,
   transports: ["websocket"],
 });
 
@@ -66,7 +85,6 @@ app.use(helmet());
 app.use(compression());
 app.use(requestMetrics);
 app.use(globalLimiter);
-app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: "5mb" })); 
 
