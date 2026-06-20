@@ -4,7 +4,7 @@ import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import ProjectLogs from "./pages/ProjectLogs.jsx";
 import ProjectSettings from "./pages/ProjectSettings.jsx";
-
+import ProjectAlerts from "./pages/ProjectAlerts.jsx";
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div style={{ padding: 32 }}>Loading...</div>;
@@ -43,6 +43,14 @@ const App = () => {
         element={
           <ProtectedRoute>
             <ProjectSettings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/alerts"
+        element={
+          <ProtectedRoute>
+            <ProjectAlerts />
           </ProtectedRoute>
         }
       />

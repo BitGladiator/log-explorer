@@ -27,7 +27,7 @@ const useLogStream = (projectId, isLive) => {
       if (!isLive) return; 
       setStreamedLogs((prev) => [...logs.reverse(), ...prev].slice(0, 500));
     });
-
+     
     return () => {
       socketRef.current?.emit('unsubscribe', projectId);
       socketRef.current?.disconnect();

@@ -12,16 +12,18 @@ const requestMetrics = require("./middleware/requestMetrics");
 const { globalLimiter, authLimiter } = require("./middleware/rateLimiter");
 const { register, activeConnections } = require("./observability/metrics");
 const logger = require("./observability/logger");
-
+const cron = require("node-cron");
+const { checkAllAlertRules } = require("./services/alertService");
 const authRoutes = require("./routes/auth");
 const ingestRoutes = require("./routes/ingest");
 const logsRoutes = require("./routes/logs");
 const projectRoutes = require("./routes/projects");
+const alertRoutes = require("./routes/alerts");
 
 const app = express();
 const httpServer = createServer(app);
-const queryRoutes = require('./routes/query');
-const clusterRoutes = require('./routes/clusters');
+const queryRoutes = require("./routes/query");
+const clusterRoutes = require("./routes/clusters");
 try {
   logger.info("Running migrations...");
   execSync("npm run migrate:up", { cwd: __dirname, stdio: "inherit" });
@@ -33,7 +35,7 @@ try {
 
 const allowedOrigins = [process.env.CLIENT_URL, "http://localhost:5173"]
   .filter(Boolean)
-  .map(origin => origin.trim().replace(/\/$/, ""));
+  .map((origin) => origin.trim().replace(/\/$/, ""));
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -52,7 +54,6 @@ const corsOptions = {
   credentials: true,
 };
 
-
 app.use(cors(corsOptions));
 
 const io = new Server(httpServer, {
@@ -61,7 +62,15 @@ const io = new Server(httpServer, {
 });
 
 module.exports.io = io;
+cron.schedule("* * * * *", async () => {
+  try {
+    await checkAllAlertRules(io);
+  } catch (err) {
+    logger.error("Alert check cron failed", { error: err.message });
+  }
+});
 
+logger.info("Alert checker scheduled — runs every minute");
 io.on("connection", (socket) => {
   activeConnections.inc();
   logger.debug("WebSocket connected", { socketId: socket.id });
@@ -80,27 +89,25 @@ io.on("connection", (socket) => {
   });
 });
 
-
 app.use(helmet());
 app.use(compression());
 app.use(requestMetrics);
 app.use(globalLimiter);
 app.use(cookieParser());
-app.use(express.json({ limit: "5mb" })); 
-
+app.use(express.json({ limit: "5mb" }));
 
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/ingest", ingestRoutes);
 app.use("/api/logs", logsRoutes);
 app.use("/api/projects", projectRoutes);
-app.use('/api/query', queryRoutes);
-app.use('/api/clusters', clusterRoutes);
+app.use("/api/query", queryRoutes);
+app.use("/api/clusters", clusterRoutes);
+app.use("/api/alerts", alertRoutes);
 
 app.get("/metrics", async (req, res) => {
   res.setHeader("Content-Type", register.contentType);
   res.end(await register.metrics());
 });
-
 
 app.get("/api/health", (req, res) =>
   res.json({
@@ -109,7 +116,6 @@ app.get("/api/health", (req, res) =>
     timestamp: new Date().toISOString(),
   })
 );
-
 
 app.use((err, req, res, next) => {
   logger.error("Unhandled error", { error: err.message, requestId: req.id });
