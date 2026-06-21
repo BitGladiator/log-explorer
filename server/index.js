@@ -19,6 +19,7 @@ const ingestRoutes = require("./routes/ingest");
 const logsRoutes = require("./routes/logs");
 const projectRoutes = require("./routes/projects");
 const alertRoutes = require("./routes/alerts");
+const { runAnomalyDetectionForAllProjects } = require('./services/anomalyService');
 
 const app = express();
 const httpServer = createServer(app);
@@ -69,7 +70,15 @@ cron.schedule("* * * * *", async () => {
     logger.error("Alert check cron failed", { error: err.message });
   }
 });
+cron.schedule('*/5 * * * *', async () => {
+  try {
+    await runAnomalyDetectionForAllProjects(io);
+  } catch (err) {
+    logger.error('Anomaly detection cron failed', { error: err.message });
+  }
+});
 
+logger.info('Anomaly detector scheduled — runs every 5 minutes');
 logger.info("Alert checker scheduled — runs every minute");
 io.on("connection", (socket) => {
   activeConnections.inc();
