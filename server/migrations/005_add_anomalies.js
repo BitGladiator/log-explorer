@@ -9,8 +9,8 @@ exports.up = async (pgm) => {
       },
       avg_logs_per_minute: { type: 'numeric', default: 0 },
       stddev_logs_per_minute: { type: 'numeric', default: 0 },
-      level_distribution: { type: 'jsonb', default: "'{}'" }, 
-      known_services: { type: 'jsonb', default: "'[]'" },
+      level_distribution: { type: 'jsonb', default: pgm.func("'{}'") },
+      known_services: { type: 'jsonb', default: pgm.func("'[]'") },
       sample_count: { type: 'integer', default: 0 }, 
       updated_at: { type: 'timestamp', default: pgm.func('NOW()') },
     });

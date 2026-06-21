@@ -93,3 +93,9 @@ export const getAlertTriggers = (projectId, params = {}) => {
 };
 export const acknowledgeAlert = (projectId, triggerId) =>
   apiFetch(`/alerts/${projectId}/triggers/${triggerId}/ack`, { method: "PUT" });
+export const getAnomalies = (projectId, params = {}) => {
+  const q = new URLSearchParams(params).toString();
+  return apiFetch(`/anomalies/${projectId}?${q}`);
+};
+export const acknowledgeAnomaly = (projectId, anomalyId) =>
+  apiFetch(`/anomalies/${projectId}/${anomalyId}/ack`, { method: "PUT" });

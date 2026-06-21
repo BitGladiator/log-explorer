@@ -8,7 +8,8 @@ import {
   getAlertTriggers,
   acknowledgeAlert,
 } from "../api/client.js";
-
+import { getAnomalies, acknowledgeAnomaly } from "../api/client.js";
+import AnomalyCard from "../components/AnomalyCard.jsx";
 const RULE_TYPES = [
   { value: "error_rate", label: "Error rate spike" },
   { value: "level_threshold", label: "Specific level threshold" },
@@ -41,7 +42,12 @@ const ProjectAlerts = () => {
   useEffect(() => {
     loadData();
   }, [projectId]);
-
+  const [anomalies, setAnomalies] = useState([]);
+  getAnomalies(projectId).then(setAnomalies).catch(console.error);
+  const handleAckAnomaly = async (id) => {
+    await acknowledgeAnomaly(projectId, id);
+    loadData();
+  };
   const handleCreate = async () => {
     if (!form.name) return;
     try {
@@ -127,7 +133,7 @@ const ProjectAlerts = () => {
       </p>
 
       <div style={{ display: "flex", gap: "4px", marginBottom: "20px" }}>
-        {["rules", "history"].map((tab) => (
+        {["rules", "history", "anomalies"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -567,6 +573,33 @@ const ProjectAlerts = () => {
                   )}
                 </div>
               </div>
+            ))
+          )}
+        </div>
+      )}
+      {activeTab === "anomalies" && (
+        <div>
+          <p style={{ fontSize: "12px", color: "#a0aec0", margin: "0 0 14px" }}>
+            Detected automatically by comparing current activity against your
+            project's learned baseline
+          </p>
+          {anomalies.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "50px",
+                border: "1px dashed #e2e8f0",
+                borderRadius: "12px",
+                color: "#a0aec0",
+                fontSize: "13px",
+              }}
+            >
+              No anomalies detected. The baseline needs about 30 minutes of
+              activity before detection becomes meaningful.
+            </div>
+          ) : (
+            anomalies.map((a) => (
+              <AnomalyCard key={a.id} anomaly={a} onAck={handleAckAnomaly} />
             ))
           )}
         </div>

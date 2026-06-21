@@ -20,6 +20,7 @@ const logsRoutes = require("./routes/logs");
 const projectRoutes = require("./routes/projects");
 const alertRoutes = require("./routes/alerts");
 const { runAnomalyDetectionForAllProjects } = require('./services/anomalyService');
+const anomalyRoutes = require('./routes/anomalies');
 
 const app = express();
 const httpServer = createServer(app);
@@ -112,6 +113,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/query", queryRoutes);
 app.use("/api/clusters", clusterRoutes);
 app.use("/api/alerts", alertRoutes);
+app.use('/api/anomalies', anomalyRoutes);
 
 app.get("/metrics", async (req, res) => {
   res.setHeader("Content-Type", register.contentType);
