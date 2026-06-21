@@ -21,6 +21,16 @@ const runAnomalyCheck = async (projectId, io) => {
   logger.info("Anomalies detected", { projectId, count: anomalies.length });
 
   for (const anomaly of anomalies) {
+
+    const { rows: recent } = await db.query(
+      `SELECT id FROM anomalies
+       WHERE project_id = $1 AND anomaly_type = $2
+         AND detected_at >= NOW() - INTERVAL '5 minutes'
+       LIMIT 1`,
+      [projectId, anomaly.type]
+    );
+    if (recent.length > 0) continue;
+
     const sampleLogs = await getSampleLogsForAnomaly(projectId, anomaly.type);
 
     let aiExplanation = null;
@@ -58,6 +68,7 @@ const runAnomalyCheck = async (projectId, io) => {
       io.to(`project:${projectId}`).emit("anomaly_detected", rows[0]);
     }
   }
+
 };
 
 const runAnomalyDetectionForAllProjects = async (io) => {

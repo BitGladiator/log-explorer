@@ -34,16 +34,17 @@ const ProjectAlerts = () => {
     slack_webhook_url: "",
   });
 
+  const [anomalies, setAnomalies] = useState([]);
+
   const loadData = () => {
     getAlertRules(projectId).then(setRules).catch(console.error);
     getAlertTriggers(projectId).then(setTriggers).catch(console.error);
+    getAnomalies(projectId).then(setAnomalies).catch(console.error);
   };
 
   useEffect(() => {
     loadData();
   }, [projectId]);
-  const [anomalies, setAnomalies] = useState([]);
-  getAnomalies(projectId).then(setAnomalies).catch(console.error);
   const handleAckAnomaly = async (id) => {
     await acknowledgeAnomaly(projectId, id);
     loadData();
@@ -151,7 +152,9 @@ const ProjectAlerts = () => {
               cursor: "pointer",
             }}
           >
-            {tab === "rules" ? "Rules" : "Trigger history"}
+            {tab === "rules" ? "Rules":""}
+            {tab === "history" ? "History":""}
+            {tab === "anomalies" ? "Anomalies":""}
           </button>
         ))}
       </div>

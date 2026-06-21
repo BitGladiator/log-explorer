@@ -1,7 +1,7 @@
 const db = require('../db');
 const logger = require('../observability/logger');
 
-const computeCurrentWindow = async (projectId) => {
+const computeCurrentWindow = async (projectId, windowMinutes = 5) => {
   const { rows } = await db.query(
     `SELECT
        level,
@@ -9,8 +9,8 @@ const computeCurrentWindow = async (projectId) => {
        DATE_TRUNC('minute', timestamp) as minute
      FROM logs
      WHERE project_id = $1
-       AND timestamp >= NOW() - INTERVAL '60 minutes'`,
-    [projectId]
+       AND timestamp >= NOW() - INTERVAL '1 minute' * $2`,
+    [projectId, windowMinutes]
   );
 
   if (rows.length === 0) return null;
@@ -49,7 +49,8 @@ const computeCurrentWindow = async (projectId) => {
 
 
 const updateBaseline = async (projectId) => {
-  const current = await computeCurrentWindow(projectId);
+
+  const current = await computeCurrentWindow(projectId, 60);
   if (!current) return null;
 
   const { rows: existing } = await db.query(

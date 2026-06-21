@@ -6,6 +6,9 @@ const Z_SCORE_THRESHOLD = 2.5;
 const MIN_SAMPLES_FOR_DETECTION = 5;
 
 const detectAnomalies = async (projectId) => {
+
+  await updateBaseline(projectId);
+
   const { rows: baselineRows } = await db.query(
     "SELECT * FROM project_baselines WHERE project_id = $1",
     [projectId]
@@ -13,8 +16,6 @@ const detectAnomalies = async (projectId) => {
 
   const baseline = baselineRows[0];
   const current = await computeCurrentWindow(projectId);
-
-  await updateBaseline(projectId);
 
   if (
     !baseline ||
@@ -29,6 +30,17 @@ const detectAnomalies = async (projectId) => {
   const stddevBaseline = parseFloat(baseline.stddev_logs_per_minute) || 1;
 
   const zScore = (current.avgLogsPerMinute - avgBaseline) / stddevBaseline;
+
+  logger.info('Anomaly detection values', {
+    projectId,
+    currentAvg: current.avgLogsPerMinute.toFixed(2),
+    baselineAvg: avgBaseline.toFixed(2),
+    stddev: stddevBaseline.toFixed(2),
+    zScore: zScore.toFixed(2),
+    sampleCount: baseline.sample_count,
+    currentErrorRate: ((current.levelDistribution.error || 0) + (current.levelDistribution.fatal || 0)).toFixed(2),
+    baselineErrorRate: ((baseline.level_distribution?.error || 0) + (baseline.level_distribution?.fatal || 0)).toFixed(2),
+  });
 
   if (zScore > Z_SCORE_THRESHOLD) {
     anomalies.push({
@@ -75,7 +87,11 @@ const detectAnomalies = async (projectId) => {
     (current.levelDistribution.error || 0) +
     (current.levelDistribution.fatal || 0);
 
-  if (currentErrorRate > baselineErrorRate + 0.15 && currentErrorRate > 0.1) {
+  // Flag if error rate jumped by 15%+ OR if it's absolutely above 50% (regardless of baseline)
+  if (
+    (currentErrorRate > baselineErrorRate + 0.15 && currentErrorRate > 0.1) ||
+    currentErrorRate > 0.5
+  ) {
     anomalies.push({
       type: "level_shift",
       severity: currentErrorRate > 0.4 ? "high" : "medium",
