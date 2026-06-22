@@ -99,3 +99,12 @@ export const getAnomalies = (projectId, params = {}) => {
 };
 export const acknowledgeAnomaly = (projectId, anomalyId) =>
   apiFetch(`/anomalies/${projectId}/${anomalyId}/ack`, { method: "PUT" });
+export const getStorageStats = (projectId) =>
+  apiFetch(`/retention/${projectId}/stats`);
+export const updateRetentionPolicy = (projectId, data) =>
+  apiFetch(`/retention/${projectId}/policy`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+export const triggerCleanup = (projectId) =>
+  apiFetch(`/retention/${projectId}/cleanup`, { method: "POST" });

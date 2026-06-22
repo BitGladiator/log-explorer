@@ -21,7 +21,9 @@ const projectRoutes = require("./routes/projects");
 const alertRoutes = require("./routes/alerts");
 const { runAnomalyDetectionForAllProjects } = require('./services/anomalyService');
 const anomalyRoutes = require('./routes/anomalies');
+const retentionRoutes = require('./routes/retention');
 
+const { runRetentionForAllProjects } = require('./services/retentionService');
 const app = express();
 const httpServer = createServer(app);
 const queryRoutes = require("./routes/query");
@@ -78,7 +80,16 @@ cron.schedule('*/5 * * * *', async () => {
     logger.error('Anomaly detection cron failed', { error: err.message });
   }
 });
+cron.schedule('0 2 * * *', async () => {
+  logger.info('Starting nightly retention cleanup');
+  try {
+    await runRetentionForAllProjects();
+  } catch (err) {
+    logger.error('Retention cron failed', { error: err.message });
+  }
+});
 
+logger.info('Retention scheduler running — cleanup at 2am daily');
 logger.info('Anomaly detector scheduled — runs every 5 minutes');
 logger.info("Alert checker scheduled — runs every minute");
 io.on("connection", (socket) => {
@@ -114,6 +125,7 @@ app.use("/api/query", queryRoutes);
 app.use("/api/clusters", clusterRoutes);
 app.use("/api/alerts", alertRoutes);
 app.use('/api/anomalies', anomalyRoutes);
+app.use('/api/retention', retentionRoutes);
 
 app.get("/metrics", async (req, res) => {
   res.setHeader("Content-Type", register.contentType);
