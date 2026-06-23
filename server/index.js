@@ -8,6 +8,7 @@ const { createServer } = require("http");
 const { Server } = require("socket.io");
 const { execSync } = require("child_process");
 
+
 const requestMetrics = require("./middleware/requestMetrics");
 const { globalLimiter, authLimiter } = require("./middleware/rateLimiter");
 const { register, activeConnections } = require("./observability/metrics");
@@ -22,6 +23,7 @@ const alertRoutes = require("./routes/alerts");
 const { runAnomalyDetectionForAllProjects } = require('./services/anomalyService');
 const anomalyRoutes = require('./routes/anomalies');
 const retentionRoutes = require('./routes/retention');
+const dashboardRoutes = require('./routes/dashboard');
 
 const { runRetentionForAllProjects } = require('./services/retentionService');
 const app = express();
@@ -126,6 +128,7 @@ app.use("/api/clusters", clusterRoutes);
 app.use("/api/alerts", alertRoutes);
 app.use('/api/anomalies', anomalyRoutes);
 app.use('/api/retention', retentionRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.get("/metrics", async (req, res) => {
   res.setHeader("Content-Type", register.contentType);

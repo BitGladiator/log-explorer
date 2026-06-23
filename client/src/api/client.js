@@ -108,3 +108,4 @@ export const updateRetentionPolicy = (projectId, data) =>
   });
 export const triggerCleanup = (projectId) =>
   apiFetch(`/retention/${projectId}/cleanup`, { method: "POST" });
+export const getDashboardStats = () => apiFetch('/dashboard/stats');
