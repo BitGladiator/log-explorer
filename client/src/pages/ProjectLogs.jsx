@@ -12,6 +12,7 @@ import LogRow from "../components/LogRow.jsx";
 import LogDetail from "../components/LogDetail.jsx";
 import NaturalQueryBar from "../components/NaturalQueryBar.jsx";
 import ClusterCard from "../components/ClusterCard.jsx";
+import LogsInsightStrip from "../components/LogsInsightStrip.jsx";
 
 const LEVELS = ["debug", "info", "warn", "error", "fatal"];
 
@@ -31,6 +32,7 @@ const ProjectLogs = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [queryLoading, setQueryLoading] = useState(false);
+  const [timeRange, setTimeRange] = useState(null);
 
   const [clusters, setClusters] = useState([]);
   const [clustersLoading, setClustersLoading] = useState(false);
@@ -54,13 +56,18 @@ const ProjectLogs = () => {
     if (levelFilter.size > 0) params.level = [...levelFilter][0];
     if (serviceFilter) params.service = serviceFilter;
     if (debouncedSearch) params.search = debouncedSearch;
+    if (timeRange?.from) params.from = timeRange.from;
+    if (timeRange?.to) params.to = timeRange.to;
 
     getLogs(projectId, params)
       .then((res) => setHistoricalLogs(res.logs))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [projectId, levelFilter, serviceFilter, debouncedSearch]);
-
+  }, [projectId, levelFilter, serviceFilter, debouncedSearch, timeRange]);
+  const handleTimeRangeChange = useCallback(({ from, to }) => {
+    setTimeRange({ from, to });
+    setIsLive(false);
+  }, []);
   useEffect(() => {
     loadLogs();
   }, [loadLogs]);
@@ -261,6 +268,10 @@ const ProjectLogs = () => {
 
       {activeTab === "logs" && (
         <>
+          <LogsInsightStrip
+            projectId={projectId}
+            onTimeRangeChange={handleTimeRangeChange}
+          />
           <div
             style={{
               padding: "12px 20px 8px",
