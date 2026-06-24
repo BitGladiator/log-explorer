@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { getMe, removeStoredToken } from '../api/client';
+import { getMe, getStoredToken, removeStoredToken } from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -8,10 +8,18 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // If there is no token stored locally, skip the network call entirely.
+    // This is the most common path for unauthenticated users and avoids
+    // a cold-start round-trip to the server on every page load.
+    if (!getStoredToken()) {
+      setLoading(false);
+      return;
+    }
+
     getMe()
       .then(setUser)
       .catch(() => {
-        removeStoredToken(); 
+        removeStoredToken();
         setUser(null);
       })
       .finally(() => setLoading(false));

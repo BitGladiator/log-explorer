@@ -2,11 +2,17 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
+const redis = require('../db/redis');
+const { authLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
+// Cache TTL: 5 minutes (user data rarely changes within a session)
+const ME_CACHE_TTL = 300;
+const meKey = (userId) => `me:${userId}`;
 
-router.post('/register', async (req, res) => {
+
+router.post('/register', authLimiter, async (req, res) => {
   const { email, password, name } = req.body;
 
   if (!email || !password) {
@@ -61,7 +67,7 @@ router.post('/register', async (req, res) => {
 });
 
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -109,6 +115,17 @@ router.post('/login', async (req, res) => {
 
 
 router.post('/logout', (req, res) => {
+  // Best-effort: clear /me cache for this user if token is present
+  try {
+    let token = req.headers['authorization']?.slice(7) || req.cookies?.token;
+    if (token) {
+      const { userId } = jwt.verify(token, process.env.JWT_SECRET);
+      redis.del(meKey(userId)).catch(() => {});
+    }
+  } catch {
+    // ignore — logout should always succeed regardless
+  }
+
   res.clearCookie('token', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -118,6 +135,15 @@ router.post('/logout', (req, res) => {
 });
 
 
+/**
+ * GET /me — returns the currently authenticated user.
+ *
+ * Optimisations:
+ *  1. JWT is verified synchronously (no I/O) before any async work.
+ *  2. User data is cached in Redis (TTL = 5 min) — subsequent calls within
+ *     a session are served without a Postgres round-trip.
+ *  3. This route is NOT behind authLimiter (it's a read, not a login attempt).
+ */
 router.get('/me', async (req, res) => {
   let token = null;
   const authHeader = req.headers['authorization'];
@@ -129,16 +155,36 @@ router.get('/me', async (req, res) => {
 
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
 
+  let userId;
   try {
-    const { userId } = jwt.verify(token, process.env.JWT_SECRET);
+    ({ userId } = jwt.verify(token, process.env.JWT_SECRET));
+  } catch {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+
+  // Try Redis cache first
+  try {
+    const cached = await redis.get(meKey(userId));
+    if (cached) {
+      return res.json(JSON.parse(cached));
+    }
+  } catch {
+    // Redis miss or error — fall through to DB
+  }
+
+  try {
     const { rows } = await db.query(
       'SELECT id, email, name, created_at FROM users WHERE id = $1',
       [userId]
     );
     if (!rows[0]) return res.status(401).json({ error: 'User not found' });
+
+    // Populate cache for future requests
+    redis.set(meKey(userId), JSON.stringify(rows[0]), 'EX', ME_CACHE_TTL).catch(() => {});
+
     res.json(rows[0]);
-  } catch {
-    res.status(401).json({ error: 'Invalid token' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

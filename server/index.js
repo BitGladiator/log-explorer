@@ -10,7 +10,7 @@ const { execSync } = require("child_process");
 
 
 const requestMetrics = require("./middleware/requestMetrics");
-const { globalLimiter, authLimiter } = require("./middleware/rateLimiter");
+const { globalLimiter } = require("./middleware/rateLimiter");
 const { register, activeConnections } = require("./observability/metrics");
 const logger = require("./observability/logger");
 const cron = require("node-cron");
@@ -119,7 +119,7 @@ app.use(globalLimiter);
 app.use(cookieParser());
 app.use(express.json({ limit: "5mb" }));
 
-app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/ingest", ingestRoutes);
 app.use("/api/logs", logsRoutes);
 app.use("/api/projects", projectRoutes);
