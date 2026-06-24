@@ -131,9 +131,11 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
                   )}
                 </div>
               )}
+              {/* The wrapper must have an explicit height so child %-heights resolve correctly */}
               <div
                 style={{
                   width: "100%",
+                  height: `${heightPct}%`,
                   display: "flex",
                   flexDirection: "column",
                   gap: "1px",
@@ -144,7 +146,7 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
                 {fatalPct > 0 && (
                   <div
                     style={{
-                      height: `${fatalPct}%`,
+                      flex: `${fatalPct}`,
                       background: LEVEL_COLORS.fatal,
                       borderRadius: "2px 2px 0 0",
                       minHeight: "2px",
@@ -154,7 +156,7 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
                 {errorPct > 0 && (
                   <div
                     style={{
-                      height: `${errorPct}%`,
+                      flex: `${errorPct}`,
                       background: LEVEL_COLORS.error,
                       borderRadius: fatalPct === 0 ? "2px 2px 0 0" : 0,
                       minHeight: "2px",
@@ -164,7 +166,7 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
                 {warnPct > 0 && (
                   <div
                     style={{
-                      height: `${warnPct}%`,
+                      flex: `${warnPct}`,
                       background: LEVEL_COLORS.warn,
                       borderRadius:
                         fatalPct === 0 && errorPct === 0 ? "2px 2px 0 0" : 0,
@@ -175,7 +177,7 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
                 {infoPct > 0 && (
                   <div
                     style={{
-                      height: `${infoPct}%`,
+                      flex: `${infoPct}`,
                       background: LEVEL_COLORS.info,
                       borderRadius:
                         fatalPct === 0 && errorPct === 0 && warnPct === 0
@@ -188,7 +190,7 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
                 {debugPct > 0 && (
                   <div
                     style={{
-                      height: `${debugPct}%`,
+                      flex: `${debugPct}`,
                       background: LEVEL_COLORS.debug,
                       borderRadius: heightPct === debugPct ? "2px 2px 0 0" : 0,
                       minHeight: "1px",
@@ -357,7 +359,14 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
     const from = new Date(bucketTime).toISOString();
     const to = new Date(bucketTime.getTime() + bucketDuration).toISOString();
 
-    // Direct bucket click is always a user action
+    // Re-fetch the chart for the zoomed window with finer granularity
+    setLoading(true);
+    getLogTimeseries(projectId, { from, to, buckets: 12 })
+      .then(setData)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+
+    // Also notify the parent to filter the log list to this window
     onTimeRangeChange?.({ from, to });
   };
 
