@@ -5,6 +5,13 @@ import { getStoredToken } from '../api/client';
 const useLogStream = (projectId, isLive) => {
   const [streamedLogs, setStreamedLogs] = useState([]);
   const socketRef = useRef(null);
+  // Use a ref so the socket event handler always reads the latest value
+  // without needing isLive in the dependency array (which would cause a
+  // full disconnect/reconnect every time the user toggles live mode).
+  const isLiveRef = useRef(isLive);
+  useEffect(() => {
+    isLiveRef.current = isLive;
+  }, [isLive]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -24,15 +31,15 @@ const useLogStream = (projectId, isLive) => {
     });
 
     socketRef.current.on('new_logs', (logs) => {
-      if (!isLive) return; 
+      if (!isLiveRef.current) return;
       setStreamedLogs((prev) => [...logs.reverse(), ...prev].slice(0, 500));
     });
-     
+
     return () => {
       socketRef.current?.emit('unsubscribe', projectId);
       socketRef.current?.disconnect();
     };
-  }, [projectId, isLive]);
+  }, [projectId]); // isLive intentionally excluded — read via ref above
 
   const clearStream = useCallback(() => setStreamedLogs([]), []);
 

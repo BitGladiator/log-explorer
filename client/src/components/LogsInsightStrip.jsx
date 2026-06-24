@@ -298,8 +298,10 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // isUserAction = true means the user explicitly clicked a range/bar;
+  // false means the initial auto-fetch on mount — we should NOT pause live mode in that case.
   const fetchTimeseries = useCallback(
-    (rangeLabel, from, to) => {
+    (rangeLabel, from, to, isUserAction = false) => {
       setLoading(true);
 
       const range = TIME_RANGES.find((r) => r.label === rangeLabel);
@@ -318,26 +320,33 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
         .catch(console.error)
         .finally(() => setLoading(false));
 
-      onTimeRangeChange?.({
-        from: fromDate.toISOString(),
-        to: toDate.toISOString(),
-      });
+      // Only pause live mode when the user explicitly changes the time range.
+      // The automatic mount-time fetch should never affect the live/paused state.
+      if (isUserAction) {
+        onTimeRangeChange?.({
+          from: fromDate.toISOString(),
+          to: toDate.toISOString(),
+        });
+      }
     },
     [projectId, onTimeRangeChange]
   );
 
   useEffect(() => {
-    fetchTimeseries(activeRange);
+    // Initial load — not a user action, so don't notify parent (don't pause live mode)
+    fetchTimeseries(activeRange, undefined, undefined, false);
   }, [activeRange, fetchTimeseries]);
 
   const handleRangeClick = (label) => {
+    // User explicitly clicked a range button — this IS a user action, so pause live mode
     setActiveRange(label);
     setShowCustom(false);
+    fetchTimeseries(label, undefined, undefined, true);
   };
 
   const handleCustomApply = () => {
     if (!customFrom || !customTo) return;
-    fetchTimeseries("custom", customFrom, customTo);
+    fetchTimeseries("custom", customFrom, customTo, true);
     setShowCustom(false);
   };
 
@@ -348,6 +357,7 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
     const from = new Date(bucketTime).toISOString();
     const to = new Date(bucketTime.getTime() + bucketDuration).toISOString();
 
+    // Direct bucket click is always a user action
     onTimeRangeChange?.({ from, to });
   };
 
