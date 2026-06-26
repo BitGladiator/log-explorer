@@ -43,7 +43,7 @@ const runRetentionForProject = async (projectId) => {
   const { rows: deleted } = await db.query(
     `DELETE FROM logs
      WHERE project_id = $1
-       AND timestamp < NOW() - INTERVAL '1 day' * $2
+       AND timestamp < NOW() - make_interval(days => $2::int)
      RETURNING id`,
     [projectId, retention_days]
   );
