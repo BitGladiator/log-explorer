@@ -89,12 +89,25 @@ const ProjectSettings = () => {
     try {
       await updateRetentionPolicy(projectId, { retention_days: retentionDays });
       const result = await triggerCleanup(projectId);
-      const cutoffStr = result.cutoff
-        ? new Date(result.cutoff).toLocaleString()
-        : `${result.retentionDays} days ago`;
-      alert(
-        `Cleanup complete — ${result.deletedCount || 0} logs deleted\nCutoff date used: ${cutoffStr}`
-      );
+
+      const fmt = (d) => d ? new Date(d).toLocaleString() : "unknown";
+
+      if (result.deletedCount > 0) {
+        alert(`✅ Cleanup complete — ${result.deletedCount} logs deleted.\nCutoff: ${fmt(result.cutoff)}`);
+      } else if (result.oldestLog && result.cutoff && new Date(result.oldestLog) >= new Date(result.cutoff)) {
+        alert(
+          `ℹ️ Nothing to delete — all ${result.totalLogs ?? ""} logs are newer than the retention period.\n\n` +
+          `Your oldest log: ${fmt(result.oldestLog)}\n` +
+          `Retention cutoff: ${fmt(result.cutoff)}\n\n` +
+          `Logs must be older than ${result.retentionDays} day(s) to be deleted.`
+        );
+      } else {
+        alert(
+          `ℹ️ Cleanup ran — 0 logs deleted.\n` +
+          `Cutoff used: ${fmt(result.cutoff)}\n` +
+          `Oldest log: ${fmt(result.oldestLog)}`
+        );
+      }
       getStorageStats(projectId).then(setStorageStats);
     } finally {
       setCleaning(false);

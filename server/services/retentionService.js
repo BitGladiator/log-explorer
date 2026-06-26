@@ -42,21 +42,20 @@ const runRetentionForProject = async (projectId) => {
 
   
   const { rows: cutoffRows } = await db.query(
-    `SELECT NOW() - ($1::int * INTERVAL '1 day') AS cutoff`,
-    [retention_days]
+    `SELECT
+       NOW() - ($1::int * INTERVAL '1 day') AS cutoff,
+       (SELECT MIN(timestamp) FROM logs WHERE project_id = $2) AS oldest_log,
+       (SELECT COUNT(*)       FROM logs WHERE project_id = $2) AS total_logs`,
+    [retention_days, projectId]
   );
-  const cutoff = cutoffRows[0].cutoff;
+  const { cutoff, oldest_log, total_logs } = cutoffRows[0];
 
-
-  const { rows: countRows } = await db.query(
-    `SELECT COUNT(*) AS would_delete FROM logs WHERE project_id = $1 AND timestamp < $2`,
-    [projectId, cutoff]
-  );
   logger.info('Retention cutoff computed', {
     projectId,
     retentionDays: retention_days,
     cutoff,
-    wouldDelete: countRows[0].would_delete,
+    oldestLog: oldest_log,
+    totalLogs: total_logs,
   });
 
   const { rows: deleted } = await db.query(
@@ -88,7 +87,14 @@ const runRetentionForProject = async (projectId) => {
     });
   }
 
-  return { projectId, deletedCount, retentionDays: retention_days, cutoff };
+  return {
+    projectId,
+    deletedCount,
+    retentionDays: retention_days,
+    cutoff,
+    oldestLog: oldest_log,
+    totalLogs: parseInt(total_logs, 10),
+  };
 };
 
 const runRetentionForAllProjects = async () => {
