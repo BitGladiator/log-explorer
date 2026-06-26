@@ -87,8 +87,14 @@ const ProjectSettings = () => {
       return;
     setCleaning(true);
     try {
+      await updateRetentionPolicy(projectId, { retention_days: retentionDays });
       const result = await triggerCleanup(projectId);
-      alert(`Cleanup complete — ${result.deletedCount || 0} logs deleted`);
+      const cutoffStr = result.cutoff
+        ? new Date(result.cutoff).toLocaleString()
+        : `${result.retentionDays} days ago`;
+      alert(
+        `Cleanup complete — ${result.deletedCount || 0} logs deleted\nCutoff date used: ${cutoffStr}`
+      );
       getStorageStats(projectId).then(setStorageStats);
     } finally {
       setCleaning(false);

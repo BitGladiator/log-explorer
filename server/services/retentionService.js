@@ -40,12 +40,31 @@ const runRetentionForProject = async (projectId) => {
     return { skipped: true, projectId };
   }
 
+  
+  const { rows: cutoffRows } = await db.query(
+    `SELECT NOW() - ($1::int * INTERVAL '1 day') AS cutoff`,
+    [retention_days]
+  );
+  const cutoff = cutoffRows[0].cutoff;
+
+
+  const { rows: countRows } = await db.query(
+    `SELECT COUNT(*) AS would_delete FROM logs WHERE project_id = $1 AND timestamp < $2`,
+    [projectId, cutoff]
+  );
+  logger.info('Retention cutoff computed', {
+    projectId,
+    retentionDays: retention_days,
+    cutoff,
+    wouldDelete: countRows[0].would_delete,
+  });
+
   const { rows: deleted } = await db.query(
     `DELETE FROM logs
      WHERE project_id = $1
-       AND timestamp < NOW() - make_interval(days => $2::int)
+       AND timestamp < $2
      RETURNING id`,
-    [projectId, retention_days]
+    [projectId, cutoff]
   );
 
   const deletedCount = deleted.length;
@@ -69,7 +88,7 @@ const runRetentionForProject = async (projectId) => {
     });
   }
 
-  return { projectId, deletedCount, retentionDays: retention_days };
+  return { projectId, deletedCount, retentionDays: retention_days, cutoff };
 };
 
 const runRetentionForAllProjects = async () => {
