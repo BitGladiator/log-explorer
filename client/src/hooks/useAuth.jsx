@@ -3,14 +3,28 @@ import { getMe, getStoredToken, removeStoredToken } from '../api/client';
 
 const AuthContext = createContext(null);
 
+
+function decodeTokenOptimistic(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const initialToken = getStoredToken();
+  const initialPayload = initialToken ? decodeTokenOptimistic(initialToken) : null;
+
+  const [user, setUser] = useState(
+    initialPayload ? { id: initialPayload.userId } : null
+  );
+  
+  const [loading, setLoading] = useState(!!initialPayload);
 
   useEffect(() => {
-    // If there is no token stored locally, skip the network call entirely.
-    // This is the most common path for unauthenticated users and avoids
-    // a cold-start round-trip to the server on every page load.
     if (!getStoredToken()) {
       setLoading(false);
       return;
