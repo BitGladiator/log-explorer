@@ -10,6 +10,7 @@ import {
 } from "../api/client.js";
 
 const RETENTION_OPTIONS = [
+  { value: 1, label: "1 day" },
   { value: 7, label: "7 days" },
   { value: 14, label: "14 days" },
   { value: 30, label: "30 days" },
@@ -93,17 +94,17 @@ const ProjectSettings = () => {
       const fmt = (d) => d ? new Date(d).toLocaleString() : "unknown";
 
       if (result.deletedCount > 0) {
-        alert(`✅ Cleanup complete — ${result.deletedCount} logs deleted.\nCutoff: ${fmt(result.cutoff)}`);
+        alert(`Cleanup complete — ${result.deletedCount} logs deleted.\nCutoff: ${fmt(result.cutoff)}`);
       } else if (result.oldestLog && result.cutoff && new Date(result.oldestLog) >= new Date(result.cutoff)) {
         alert(
-          `ℹ️ Nothing to delete — all ${result.totalLogs ?? ""} logs are newer than the retention period.\n\n` +
+          `Nothing to delete — all ${result.totalLogs ?? ""} logs are newer than the retention period.\n\n` +
           `Your oldest log: ${fmt(result.oldestLog)}\n` +
           `Retention cutoff: ${fmt(result.cutoff)}\n\n` +
           `Logs must be older than ${result.retentionDays} day(s) to be deleted.`
         );
       } else {
         alert(
-          `ℹ️ Cleanup ran — 0 logs deleted.\n` +
+          `Cleanup ran — 0 logs deleted.\n` +
           `Cutoff used: ${fmt(result.cutoff)}\n` +
           `Oldest log: ${fmt(result.oldestLog)}`
         );
