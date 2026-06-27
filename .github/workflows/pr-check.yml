@@ -1,0 +1,45 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check:
+    name: PR build check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check server
+        working-directory: server
+        run: |
+          npm ci --silent
+          node --check index.js
+          echo "Server OK"
+
+      - name: Check client builds
+        working-directory: client
+        env:
+          VITE_API_URL: https://log-explorer-gbro.onrender.com
+        run: |
+          npm ci --silent
+          npm run build
+          echo "Client build OK"
+
+      - name: Summary
+        run: |
+          echo "## PR Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Server syntax | ✓ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Client build | ✓ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
