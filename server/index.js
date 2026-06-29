@@ -6,7 +6,7 @@ const helmet = require("helmet");
 const compression = require("compression");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
-const { execSync } = require("child_process");
+const { exec } = require("child_process");
 
 
 const requestMetrics = require("./middleware/requestMetrics");
@@ -30,14 +30,22 @@ const app = express();
 const httpServer = createServer(app);
 const queryRoutes = require("./routes/query");
 const clusterRoutes = require("./routes/clusters");
-try {
-  logger.info("Running migrations...");
-  execSync("npm run migrate:up", { cwd: __dirname, stdio: "inherit" });
-  logger.info("Migrations complete");
-} catch (err) {
-  logger.error("Migration failed", { error: err.message });
-  process.exit(1);
-}
+// Migrations run asynchronously after the server is already listening so the
+// port opens immediately and the first /me request is not blocked by this I/O.
+const runMigrations = () =>
+  new Promise((resolve, reject) => {
+    logger.info("Running migrations...");
+    exec("npm run migrate:up", { cwd: __dirname }, (err, stdout, stderr) => {
+      if (stdout) process.stdout.write(stdout);
+      if (stderr) process.stderr.write(stderr);
+      if (err) {
+        logger.error("Migration failed", { error: err.message });
+        return reject(err);
+      }
+      logger.info("Migrations complete");
+      resolve();
+    });
+  });
 
 const allowedOrigins = [process.env.CLIENT_URL, "http://localhost:5173"]
   .filter(Boolean)
@@ -143,6 +151,9 @@ app.get("/api/health", (req, res) =>
   })
 );
 
+
+app.get("/api/ping", (_req, res) => res.json({ pong: true }));
+
 app.use((err, req, res, next) => {
   logger.error("Unhandled error", { error: err.message, requestId: req.id });
   res.status(err.status || 500).json({
@@ -154,6 +165,16 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5500;
-httpServer.listen(PORT, () =>
-  logger.info(`Log Explorer server running on port ${PORT}`)
-);
+httpServer.listen(PORT, async () => {
+  logger.info(`Log Explorer server running on port ${PORT}`);
+
+  
+  try {
+    await runMigrations();
+  } catch {
+    
+  }
+  const db = require('./db');
+  db.query('SELECT 1').catch(() => {});
+  logger.info('DB warm-up ping sent');
+});

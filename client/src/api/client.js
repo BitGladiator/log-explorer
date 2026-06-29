@@ -40,6 +40,8 @@ export const login = async (data) => {
 };
 export const logout = async () => {
   removeStoredToken();
+  // Clear the /me stale-while-revalidate cache kept in useAuth.
+  try { localStorage.removeItem('me_cache'); } catch {}
   return apiFetch("/auth/logout", { method: "POST" });
 };
 export const getMe = () => apiFetch("/auth/me");
