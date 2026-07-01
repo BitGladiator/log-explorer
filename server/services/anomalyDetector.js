@@ -87,7 +87,6 @@ const detectAnomalies = async (projectId) => {
     (current.levelDistribution.error || 0) +
     (current.levelDistribution.fatal || 0);
 
-  // Flag if error rate jumped by 15%+ OR if it's absolutely above 50% (regardless of baseline)
   if (
     (currentErrorRate > baselineErrorRate + 0.15 && currentErrorRate > 0.1) ||
     currentErrorRate > 0.5
