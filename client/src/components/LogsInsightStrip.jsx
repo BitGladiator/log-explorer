@@ -10,11 +10,11 @@ const TIME_RANGES = [
 ];
 
 const LEVEL_COLORS = {
-  debug: "#CBD5E0",
-  info: "#90CDF4",
-  warn: "#F6E05E",
-  error: "#FC8181",
-  fatal: "#9B2335",
+  debug: "#cbd5e1",
+  info: "#60a5fa",
+  warn: "#fbbf24",
+  error: "#f87171",
+  fatal: "#dc2626",
 };
 
 const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
@@ -24,12 +24,14 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
     return (
       <div
         style={{
-          height: "64px",
+          height: 64,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "#a0aec0",
-          fontSize: "12px",
+          color: "#94a3b8",
+          fontSize: 12,
+          border: "1px dashed #e2e8f0",
+          borderRadius: 8,
         }}
       >
         No logs in this time range
@@ -39,16 +41,9 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
 
   const max = Math.max(...series.map((s) => parseInt(s.total)), 1);
 
-  const formatBucketLabel = (bucket) => {
+  const formatLabel = (bucket) => {
     const d = new Date(bucket);
-    if (rangeLabel === "1h" || rangeLabel === "6h") {
-      return d.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
-    }
-    if (rangeLabel === "24h") {
+    if (rangeLabel === "1h" || rangeLabel === "6h" || rangeLabel === "24h") {
       return d.toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",
@@ -61,12 +56,7 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
   return (
     <div>
       <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: "2px",
-          height: "64px",
-        }}
+        style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 64 }}
       >
         {series.map((s, i) => {
           const total = parseInt(s.total);
@@ -80,8 +70,7 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
           const infoPct =
             total > 0 ? (parseInt(s.info) / total) * heightPct : 0;
           const debugPct = heightPct - fatalPct - errorPct - warnPct - infoPct;
-
-          const isHovered = hovered === i;
+          const isHov = hovered === i;
 
           return (
             <div
@@ -99,110 +88,109 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
               onMouseLeave={() => setHovered(null)}
               onClick={() => total > 0 && onBucketClick && onBucketClick(s)}
             >
-              {isHovered && total > 0 && (
+              {isHov && total > 0 && (
                 <div
                   style={{
                     position: "absolute",
-                    bottom: "100%",
+                    bottom: "calc(100% + 6px)",
                     left: "50%",
                     transform: "translateX(-50%)",
-                    background: "#1a202c",
-                    color: "#fff",
-                    fontSize: "10px",
-                    padding: "5px 8px",
-                    borderRadius: "6px",
+                    background: "#1e293b",
+                    color: "#f1f5f9",
+                    fontSize: 10,
+                    padding: "6px 10px",
+                    borderRadius: 7,
                     whiteSpace: "nowrap",
                     zIndex: 20,
-                    marginBottom: "4px",
-                    lineHeight: 1.6,
+                    lineHeight: 1.7,
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.2)",
                   }}
                 >
-                  <div style={{ fontWeight: "600" }}>
-                    {formatBucketLabel(s.bucket)}
-                  </div>
-                  <div>{total} logs</div>
+                  <div style={{ fontWeight: 600 }}>{formatLabel(s.bucket)}</div>
+                  <div>{total.toLocaleString()} logs</div>
                   {parseInt(s.error) + parseInt(s.fatal) > 0 && (
-                    <div style={{ color: "#FC8181" }}>
+                    <div style={{ color: LEVEL_COLORS.error }}>
                       {parseInt(s.error) + parseInt(s.fatal)} errors
                     </div>
                   )}
                   {parseInt(s.warn) > 0 && (
-                    <div style={{ color: "#F6E05E" }}>{s.warn} warnings</div>
+                    <div style={{ color: LEVEL_COLORS.warn }}>
+                      {s.warn} warnings
+                    </div>
                   )}
                 </div>
               )}
-              {/* The wrapper must have an explicit height so child %-heights resolve correctly */}
               <div
                 style={{
                   width: "100%",
                   height: `${heightPct}%`,
                   display: "flex",
                   flexDirection: "column",
-                  gap: "1px",
-                  opacity: isHovered ? 1 : 0.85,
+                  gap: 1,
+                  opacity: isHov ? 1 : 0.85,
                   transition: "opacity 0.1s",
                 }}
               >
                 {fatalPct > 0 && (
                   <div
                     style={{
-                      flex: `${fatalPct}`,
+                      flex: fatalPct,
                       background: LEVEL_COLORS.fatal,
                       borderRadius: "2px 2px 0 0",
-                      minHeight: "2px",
+                      minHeight: 2,
                     }}
                   />
                 )}
                 {errorPct > 0 && (
                   <div
                     style={{
-                      flex: `${errorPct}`,
+                      flex: errorPct,
                       background: LEVEL_COLORS.error,
                       borderRadius: fatalPct === 0 ? "2px 2px 0 0" : 0,
-                      minHeight: "2px",
+                      minHeight: 2,
                     }}
                   />
                 )}
                 {warnPct > 0 && (
                   <div
                     style={{
-                      flex: `${warnPct}`,
+                      flex: warnPct,
                       background: LEVEL_COLORS.warn,
                       borderRadius:
                         fatalPct === 0 && errorPct === 0 ? "2px 2px 0 0" : 0,
-                      minHeight: "2px",
+                      minHeight: 2,
                     }}
                   />
                 )}
                 {infoPct > 0 && (
                   <div
                     style={{
-                      flex: `${infoPct}`,
+                      flex: infoPct,
                       background: LEVEL_COLORS.info,
                       borderRadius:
                         fatalPct === 0 && errorPct === 0 && warnPct === 0
                           ? "2px 2px 0 0"
                           : 0,
-                      minHeight: "2px",
+                      minHeight: 2,
                     }}
                   />
                 )}
                 {debugPct > 0 && (
                   <div
                     style={{
-                      flex: `${debugPct}`,
+                      flex: debugPct,
                       background: LEVEL_COLORS.debug,
                       borderRadius: heightPct === debugPct ? "2px 2px 0 0" : 0,
-                      minHeight: "1px",
+                      minHeight: 1,
                     }}
                   />
                 )}
                 {total === 0 && (
                   <div
                     style={{
-                      height: "2px",
+                      height: 2,
                       background: "#f1f5f9",
-                      borderRadius: "2px",
+                      borderRadius: 2,
                     }}
                   />
                 )}
@@ -211,12 +199,11 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
           );
         })}
       </div>
-
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          marginTop: "5px",
+          marginTop: 5,
         }}
       >
         {[
@@ -228,8 +215,8 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
         ]
           .filter((i, pos, arr) => arr.indexOf(i) === pos)
           .map((i) => (
-            <span key={i} style={{ fontSize: "10px", color: "#a0aec0" }}>
-              {series[i] ? formatBucketLabel(series[i].bucket) : ""}
+            <span key={i} style={{ fontSize: 10, color: "#94a3b8" }}>
+              {series[i] ? formatLabel(series[i].bucket) : ""}
             </span>
           ))}
       </div>
@@ -239,58 +226,102 @@ const VolumeChart = ({ series, rangeLabel, onBucketClick }) => {
 
 const ErrorRateLine = ({ series }) => {
   if (!series || series.length < 2) return null;
-
   const rates = series.map((s) => {
     const total = parseInt(s.total);
-    if (total === 0) return 0;
-    return ((parseInt(s.error) + parseInt(s.fatal)) / total) * 100;
+    return total === 0
+      ? 0
+      : ((parseInt(s.error) + parseInt(s.fatal)) / total) * 100;
   });
-
   const max = Math.max(...rates, 1);
-  const W = 120;
-  const H = 28;
-
+  const W = 100,
+    H = 24;
   const points = rates
-    .map((r, i) => {
-      const x = (i / (rates.length - 1)) * W;
-      const y = H - (r / max) * H;
-      return `${x},${y}`;
-    })
+    .map((r, i) => `${(i / (rates.length - 1)) * W},${H - (r / max) * H}`)
     .join(" ");
-
   const hasErrors = rates.some((r) => r > 0);
-  if (!hasErrors)
-    return (
-      <div style={{ fontSize: "11px", color: "#38A169" }}>0% error rate</div>
-    );
-
   const avgRate = rates.reduce((s, r) => s + r, 0) / rates.length;
 
+  if (!hasErrors) {
+    return (
+      <span style={{ fontSize: 11, color: "#059669", fontWeight: 600 }}>
+        0% error rate
+      </span>
+    );
+  }
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 3,
+        alignItems: "flex-end",
+      }}
+    >
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
         <defs>
-          <linearGradient id="err-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FC8181" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#FC8181" stopOpacity="0" />
+          <linearGradient id="err-grad-light" x1="0" y1="0" x2="0" y2="1">
+            <stop
+              offset="0%"
+              stopColor={LEVEL_COLORS.error}
+              stopOpacity="0.2"
+            />
+            <stop
+              offset="100%"
+              stopColor={LEVEL_COLORS.error}
+              stopOpacity="0"
+            />
           </linearGradient>
         </defs>
-        <polygon points={`0,${H} ${points} ${W},${H}`} fill="url(#err-grad)" />
+        <polygon
+          points={`0,${H} ${points} ${W},${H}`}
+          fill="url(#err-grad-light)"
+        />
         <polyline
           points={points}
           fill="none"
-          stroke="#FC8181"
+          stroke={LEVEL_COLORS.error}
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
       </svg>
-      <div style={{ fontSize: "11px", color: "#9B2335" }}>
+      <span style={{ fontSize: 11, color: "#be123c", fontWeight: 600 }}>
         {avgRate.toFixed(1)}% avg error rate
-      </div>
+      </span>
     </div>
   );
 };
+
+const MiniStat = ({ label, value, color, sub }) => (
+  <div>
+    <div
+      style={{
+        fontSize: 10,
+        fontWeight: 600,
+        textTransform: "uppercase",
+        letterSpacing: "0.07em",
+        color: "#94a3b8",
+        marginBottom: 4,
+      }}
+    >
+      {label}
+    </div>
+    <div
+      style={{
+        fontSize: 22,
+        fontWeight: 700,
+        color: color || "#0f172a",
+        lineHeight: 1,
+      }}
+    >
+      {value}
+    </div>
+    {sub && (
+      <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 3 }}>{sub}</div>
+    )}
+  </div>
+);
 
 const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
   const [activeRange, setActiveRange] = useState("24h");
@@ -300,12 +331,9 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // isUserAction = true means the user explicitly clicked a range/bar;
-  // false means the initial auto-fetch on mount — we should NOT pause live mode in that case.
   const fetchTimeseries = useCallback(
     (rangeLabel, from, to, isUserAction = false) => {
       setLoading(true);
-
       const range = TIME_RANGES.find((r) => r.label === rangeLabel);
       const toDate = to ? new Date(to) : new Date();
       const fromDate = from
@@ -322,8 +350,6 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
         .catch(console.error)
         .finally(() => setLoading(false));
 
-      // Only pause live mode when the user explicitly changes the time range.
-      // The automatic mount-time fetch should never affect the live/paused state.
       if (isUserAction) {
         onTimeRangeChange?.({
           from: fromDate.toISOString(),
@@ -335,12 +361,10 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
   );
 
   useEffect(() => {
-    // Initial load — not a user action, so don't notify parent (don't pause live mode)
     fetchTimeseries(activeRange, undefined, undefined, false);
   }, [activeRange, fetchTimeseries]);
 
   const handleRangeClick = (label) => {
-    // User explicitly clicked a range button — this IS a user action, so pause live mode
     setActiveRange(label);
     setShowCustom(false);
     fetchTimeseries(label, undefined, undefined, true);
@@ -359,14 +383,12 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
     const from = new Date(bucketTime).toISOString();
     const to = new Date(bucketTime.getTime() + bucketDuration).toISOString();
 
-    // Re-fetch the chart for the zoomed window with finer granularity
     setLoading(true);
     getLogTimeseries(projectId, { from, to, buckets: 12 })
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
 
-    // Also notify the parent to filter the log list to this window
     onTimeRangeChange?.({ from, to });
   };
 
@@ -382,22 +404,29 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
   return (
     <div
       style={{
-        background: "#fff",
+        background: "#ffffff",
         borderBottom: "1px solid #e2e8f0",
         padding: "14px 20px",
         flexShrink: 0,
+        fontFamily: "'Inter', system-ui, sans-serif",
       }}
     >
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "6px",
-          marginBottom: "12px",
+          gap: 6,
+          marginBottom: 14,
+          flexWrap: "wrap",
         }}
       >
         <span
-          style={{ fontSize: "11px", color: "#a0aec0", marginRight: "4px" }}
+          style={{
+            fontSize: 11,
+            color: "#94a3b8",
+            marginRight: 4,
+            fontWeight: 500,
+          }}
         >
           Range
         </span>
@@ -406,15 +435,17 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
             key={r.label}
             onClick={() => handleRangeClick(r.label)}
             style={{
-              fontSize: "11px",
-              fontWeight: "500",
+              fontSize: 11,
+              fontWeight: 600,
               padding: "3px 10px",
-              borderRadius: "6px",
+              borderRadius: 6,
               border: "1px solid",
               cursor: "pointer",
-              borderColor: activeRange === r.label ? "#2d3748" : "#e2e8f0",
-              background: activeRange === r.label ? "#2d3748" : "#fff",
-              color: activeRange === r.label ? "#fff" : "#718096",
+              fontFamily: "inherit",
+              borderColor: activeRange === r.label ? "#14b8a6" : "#e2e8f0",
+              background: activeRange === r.label ? "#f0fdfa" : "#f8fafc",
+              color: activeRange === r.label ? "#0d9488" : "#64748b",
+              transition: "all 0.15s",
             }}
           >
             {r.label}
@@ -423,26 +454,26 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
         <button
           onClick={() => setShowCustom((v) => !v)}
           style={{
-            fontSize: "11px",
-            fontWeight: "500",
+            fontSize: 11,
+            fontWeight: 600,
             padding: "3px 10px",
-            borderRadius: "6px",
+            borderRadius: 6,
             border: "1px solid #e2e8f0",
-            background: showCustom ? "#F7FAFC" : "#fff",
-            color: "#718096",
+            background: showCustom ? "#f1f5f9" : "#f8fafc",
+            color: "#64748b",
             cursor: "pointer",
+            fontFamily: "inherit",
           }}
         >
           Custom
         </button>
-
         {showCustom && (
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "6px",
-              marginLeft: "4px",
+              gap: 6,
+              marginLeft: 4,
             }}
           >
             <input
@@ -450,36 +481,43 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
               value={customFrom}
               onChange={(e) => setCustomFrom(e.target.value)}
               style={{
-                fontSize: "11px",
+                fontSize: 11,
                 padding: "3px 8px",
+                background: "#f8fafc",
                 border: "1px solid #e2e8f0",
-                borderRadius: "6px",
+                borderRadius: 6,
                 outline: "none",
+                color: "#1e293b",
+                fontFamily: "inherit",
               }}
             />
-            <span style={{ fontSize: "11px", color: "#a0aec0" }}>to</span>
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>to</span>
             <input
               type="datetime-local"
               value={customTo}
               onChange={(e) => setCustomTo(e.target.value)}
               style={{
-                fontSize: "11px",
+                fontSize: 11,
                 padding: "3px 8px",
+                background: "#f8fafc",
                 border: "1px solid #e2e8f0",
-                borderRadius: "6px",
+                borderRadius: 6,
                 outline: "none",
+                color: "#1e293b",
+                fontFamily: "inherit",
               }}
             />
             <button
               onClick={handleCustomApply}
               style={{
-                fontSize: "11px",
+                fontSize: 11,
                 padding: "3px 10px",
-                background: "#2d3748",
+                background: "#0d9488",
                 color: "#fff",
-                border: "none",
-                borderRadius: "6px",
+                border: "1px solid #0d9488",
+                borderRadius: 6,
                 cursor: "pointer",
+                fontFamily: "inherit",
               }}
             >
               Apply
@@ -491,149 +529,70 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr 1fr 2fr",
-          gap: "12px",
+          gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr",
+          gap: 16,
           alignItems: "center",
+          marginBottom: 14,
         }}
       >
-        <div>
-          <div
-            style={{
-              fontSize: "10px",
-              color: "#a0aec0",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              marginBottom: "2px",
-            }}
-          >
-            Total
-          </div>
-          <div
-            style={{
-              fontSize: "20px",
-              fontWeight: "700",
-              color: "#1a202c",
-              lineHeight: 1,
-            }}
-          >
-            {loading ? "—" : fmt(summary?.total)}
-          </div>
-          <div style={{ fontSize: "10px", color: "#a0aec0", marginTop: "2px" }}>
-            logs
-          </div>
-        </div>
-        <div>
-          <div
-            style={{
-              fontSize: "10px",
-              color: "#a0aec0",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              marginBottom: "2px",
-            }}
-          >
-            Errors
-          </div>
-          <div
-            style={{
-              fontSize: "20px",
-              fontWeight: "700",
-              color: errorCount > 0 ? "#9B2335" : "#1a202c",
-              lineHeight: 1,
-            }}
-          >
-            {loading ? "—" : fmt(errorCount)}
-          </div>
-          <div style={{ fontSize: "10px", color: "#a0aec0", marginTop: "2px" }}>
-            {errorRate}% of traffic
-          </div>
-        </div>
-        <div>
-          <div
-            style={{
-              fontSize: "10px",
-              color: "#a0aec0",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              marginBottom: "2px",
-            }}
-          >
-            Warnings
-          </div>
-          <div
-            style={{
-              fontSize: "20px",
-              fontWeight: "700",
-              color: parseInt(summary?.warns) > 0 ? "#744210" : "#1a202c",
-              lineHeight: 1,
-            }}
-          >
-            {loading ? "—" : fmt(summary?.warns)}
-          </div>
-          <div style={{ fontSize: "10px", color: "#a0aec0", marginTop: "2px" }}>
-            warn level
-          </div>
-        </div>
-        <div>
-          <div
-            style={{
-              fontSize: "10px",
-              color: "#a0aec0",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              marginBottom: "2px",
-            }}
-          >
-            Services
-          </div>
-          <div
-            style={{
-              fontSize: "20px",
-              fontWeight: "700",
-              color: "#1a202c",
-              lineHeight: 1,
-            }}
-          >
-            {loading ? "—" : fmt(summary?.unique_services)}
-          </div>
-          <div style={{ fontSize: "10px", color: "#a0aec0", marginTop: "2px" }}>
-            {fmt(summary?.unique_hosts)} host
-            {parseInt(summary?.unique_hosts) !== 1 ? "s" : ""}
-          </div>
-        </div>
+        <MiniStat
+          label="Total"
+          value={loading ? "—" : fmt(summary?.total)}
+          sub="logs"
+        />
+        <MiniStat
+          label="Errors"
+          value={loading ? "—" : fmt(errorCount)}
+          color={errorCount > 0 ? "#be123c" : undefined}
+          sub={`${errorRate}% of traffic`}
+        />
+        <MiniStat
+          label="Warnings"
+          value={loading ? "—" : fmt(summary?.warns)}
+          color={parseInt(summary?.warns) > 0 ? "#b45309" : undefined}
+          sub="warn level"
+        />
+        <MiniStat
+          label="Services"
+          value={loading ? "—" : fmt(summary?.unique_services)}
+          sub={`${fmt(summary?.unique_hosts)} host${
+            parseInt(summary?.unique_hosts) !== 1 ? "s" : ""
+          }`}
+        />
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           {!loading && data?.series && <ErrorRateLine series={data.series} />}
         </div>
       </div>
-      <div style={{ marginTop: "14px" }}>
+
+      <div>
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: "6px",
+            marginBottom: 8,
           }}
         >
-          <span style={{ fontSize: "10px", color: "#a0aec0" }}>
+          <span style={{ fontSize: 10, color: "#94a3b8" }}>
             Log volume · click a bar to zoom into that window
           </span>
-          <div style={{ display: "flex", gap: "8px" }}>
+          <div style={{ display: "flex", gap: 10 }}>
             {Object.entries(LEVEL_COLORS).map(([level, color]) => (
               <span
                 key={level}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "3px",
-                  fontSize: "10px",
-                  color: "#a0aec0",
+                  gap: 4,
+                  fontSize: 10,
+                  color: "#94a3b8",
                 }}
               >
                 <span
                   style={{
-                    width: "7px",
-                    height: "7px",
-                    borderRadius: "2px",
+                    width: 7,
+                    height: 7,
+                    borderRadius: 2,
                     background: color,
                     display: "inline-block",
                   }}
@@ -646,14 +605,14 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
         {loading ? (
           <div
             style={{
-              height: "64px",
+              height: 64,
               display: "flex",
               alignItems: "center",
-              color: "#a0aec0",
-              fontSize: "12px",
+              color: "#94a3b8",
+              fontSize: 12,
             }}
           >
-            Loading...
+            Loading chart…
           </div>
         ) : (
           <VolumeChart

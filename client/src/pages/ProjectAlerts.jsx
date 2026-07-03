@@ -10,31 +10,76 @@ import {
 } from "../api/client.js";
 import { getAnomalies, acknowledgeAnomaly } from "../api/client.js";
 import AnomalyCard from "../components/AnomalyCard.jsx";
+
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #f4f6f9;
+    color: #1e293b;
+    -webkit-font-smoothing: antialiased;
+  }
+  .al-input {
+    width: 100%; padding: 8px 12px;
+    border: 1px solid #e2e8f0; border-radius: 7px;
+    font-size: 13px; font-family: inherit;
+    background: #fff; color: #1e293b; outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .al-input::placeholder { color: #94a3b8; }
+  .al-input:focus { border-color: #14b8a6; background: #f0fdfa; }
+  .al-select {
+    width: 100%; padding: 8px 12px;
+    border: 1px solid #e2e8f0; border-radius: 7px;
+    font-size: 13px; font-family: inherit;
+    background: #fff; color: #1e293b;
+    cursor: pointer; outline: none;
+    transition: border-color 0.15s;
+  }
+  .al-select:focus { border-color: #14b8a6; }
+`;
+
 const RULE_TYPES = [
-  { value: "error_rate", label: "Error rate spike" },
-  { value: "level_threshold", label: "Specific level threshold" },
-  { value: "keyword_match", label: "Keyword match" },
+  { value: "error_rate",       label: "Error rate spike"        },
+  { value: "level_threshold",  label: "Specific level threshold" },
+  { value: "keyword_match",    label: "Keyword match"            },
 ];
+
+
+const Section = ({ children }) => (
+  <div style={{
+    background: "#fff", border: "1px solid #e2e8f0",
+    borderRadius: 12, padding: "20px",
+    marginBottom: 16,
+  }}>
+    {children}
+  </div>
+);
+
+const SectionLabel = ({ children }) => (
+  <div style={{
+    fontSize: 10, fontWeight: 700, textTransform: "uppercase",
+    letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 14,
+  }}>
+    {children}
+  </div>
+);
 
 const ProjectAlerts = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
 
-  const [rules, setRules] = useState([]);
-  const [triggers, setTriggers] = useState([]);
-  const [activeTab, setActiveTab] = useState("rules");
-  const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    rule_type: "error_rate",
-    threshold_count: 10,
-    window_minutes: 5,
-    keyword: "",
-    service: "",
-    slack_webhook_url: "",
-  });
-
+  const [rules,     setRules]     = useState([]);
+  const [triggers,  setTriggers]  = useState([]);
   const [anomalies, setAnomalies] = useState([]);
+  const [activeTab, setActiveTab] = useState("rules");
+  const [creating,  setCreating]  = useState(false);
+  const [form, setForm] = useState({
+    name: "", rule_type: "error_rate",
+    threshold_count: 10, window_minutes: 5,
+    keyword: "", service: "", slack_webhook_url: "",
+  });
 
   const loadData = () => {
     getAlertRules(projectId).then(setRules).catch(console.error);
@@ -42,31 +87,21 @@ const ProjectAlerts = () => {
     getAnomalies(projectId).then(setAnomalies).catch(console.error);
   };
 
-  useEffect(() => {
-    loadData();
-  }, [projectId]);
+  useEffect(() => { loadData(); }, [projectId]);
+
   const handleAckAnomaly = async (id) => {
     await acknowledgeAnomaly(projectId, id);
     loadData();
   };
+
   const handleCreate = async () => {
     if (!form.name) return;
     try {
       await createAlertRule(projectId, form);
       setCreating(false);
-      setForm({
-        name: "",
-        rule_type: "error_rate",
-        threshold_count: 10,
-        window_minutes: 5,
-        keyword: "",
-        service: "",
-        slack_webhook_url: "",
-      });
+      setForm({ name: "", rule_type: "error_rate", threshold_count: 10, window_minutes: 5, keyword: "", service: "", slack_webhook_url: "" });
       loadData();
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleToggle = async (rule) => {
@@ -87,528 +122,355 @@ const ProjectAlerts = () => {
 
   const formatTime = (ts) => {
     const diffMin = Math.floor((Date.now() - new Date(ts)) / 60000);
-    if (diffMin < 1) return "just now";
+    if (diffMin < 1)  return "just now";
     if (diffMin < 60) return `${diffMin}m ago`;
     return `${Math.floor(diffMin / 60)}h ago`;
   };
 
   const describeRule = (rule) => {
-    if (rule.rule_type === "keyword_match") {
+    if (rule.rule_type === "keyword_match")
       return `"${rule.keyword}" appears ${rule.threshold_count}+ times in ${rule.window_minutes}m`;
-    }
-    if (rule.rule_type === "level_threshold") {
+    if (rule.rule_type === "level_threshold")
       return `${rule.level} level ${rule.threshold_count}+ times in ${rule.window_minutes}m`;
-    }
     return `Error/fatal logs ${rule.threshold_count}+ times in ${rule.window_minutes}m`;
   };
 
+  const TABS = ["rules", "history", "anomalies"];
+  const TAB_LABELS = { rules: "Rules", history: "History", anomalies: "Anomalies" };
+
   return (
-    <div style={{ maxWidth: "720px", margin: "0 auto", padding: "40px 24px" }}>
-      <button
-        onClick={() => navigate(`/projects/${projectId}`)}
-        style={{
-          background: "none",
-          border: "none",
-          color: "#718096",
-          cursor: "pointer",
-          fontSize: "13px",
-          padding: 0,
-          marginBottom: "20px",
-        }}
-      >
-        ← Back to logs
-      </button>
+    <>
+      <style>{CSS}</style>
 
-      <h1
-        style={{
-          fontSize: "20px",
-          fontWeight: "600",
-          color: "#1a202c",
-          margin: "0 0 4px",
-        }}
-      >
-        Alerts
-      </h1>
-      <p style={{ fontSize: "13px", color: "#718096", margin: "0 0 24px" }}>
-        Get notified when your logs show signs of trouble
-      </p>
 
-      <div style={{ display: "flex", gap: "4px", marginBottom: "20px" }}>
-        {["rules", "history", "anomalies"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              padding: "7px 16px",
-              fontSize: "13px",
-              fontWeight: "500",
-              border: "none",
-              borderBottom:
-                activeTab === tab
-                  ? "2px solid #2d3748"
-                  : "2px solid transparent",
-              background: "none",
-              color: activeTab === tab ? "#1a202c" : "#a0aec0",
-              cursor: "pointer",
-            }}
-          >
-            {tab === "rules" ? "Rules":""}
-            {tab === "history" ? "History":""}
-            {tab === "anomalies" ? "Anomalies":""}
-          </button>
-        ))}
+      <div style={{
+        background: "#fff", borderBottom: "1px solid #e2e8f0",
+        height: 52, display: "flex", alignItems: "center",
+        padding: "0 24px", gap: 12, position: "sticky", top: 0, zIndex: 50,
+        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}>
+
+        <div style={{
+          width: 28, height: 28,
+          background: "linear-gradient(135deg, #14b8a6, #0d9488)",
+          borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <button
+          onClick={() => navigate(`/projects/${projectId}`)}
+          style={{
+            display: "flex", alignItems: "center", gap: 5,
+            fontSize: 13, fontWeight: 500, color: "#64748b",
+            background: "none", border: "none", cursor: "pointer",
+            fontFamily: "inherit", padding: "5px 8px", borderRadius: 6,
+            transition: "color 0.15s, background 0.15s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "#0f172a"; e.currentTarget.style.background = "#f1f5f9"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "#64748b"; e.currentTarget.style.background = "none"; }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          Logs
+        </button>
+        <span style={{ color: "#cbd5e1", fontSize: 16 }}>/</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Alerts</span>
       </div>
 
-      {activeTab === "rules" && (
-        <>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginBottom: "14px",
-            }}
-          >
+
+      <div style={{
+        maxWidth: 720, margin: "0 auto", padding: "32px 24px",
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>
+          Alert rules
+        </h1>
+        <p style={{ fontSize: 13, color: "#64748b", marginBottom: 24 }}>
+          Get notified when your logs show signs of trouble
+        </p>
+
+
+        <div style={{
+          display: "flex", gap: 2,
+          borderBottom: "1px solid #e2e8f0",
+          marginBottom: 24,
+        }}>
+          {TABS.map((tab) => (
             <button
-              onClick={() => setCreating((c) => !c)}
+              key={tab}
+              onClick={() => setActiveTab(tab)}
               style={{
-                padding: "7px 16px",
-                background: "#2d3748",
-                color: "#fff",
-                border: "none",
-                borderRadius: "8px",
-                fontSize: "13px",
-                cursor: "pointer",
+                padding: "9px 16px", fontSize: 13, fontWeight: 500,
+                border: "none", background: "none", cursor: "pointer",
+                fontFamily: "inherit",
+                color: activeTab === tab ? "#0d9488" : "#94a3b8",
+                borderBottom: `2px solid ${activeTab === tab ? "#14b8a6" : "transparent"}`,
+                marginBottom: -1,
+                transition: "color 0.15s, border-color 0.15s",
               }}
             >
-              {creating ? "Cancel" : "New alert rule"}
+              {TAB_LABELS[tab]}
             </button>
-          </div>
+          ))}
+        </div>
 
-          {creating && (
-            <div
-              style={{
-                background: "#F7FAFC",
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px",
-                padding: "20px",
-                marginBottom: "16px",
-              }}
-            >
-              <input
-                type="text"
-                placeholder="Rule name (e.g. High error rate in billing)"
-                value={form.name}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, name: e.target.value }))
-                }
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "7px",
-                  fontSize: "13px",
-                  marginBottom: "10px",
-                  boxSizing: "border-box",
-                  outline: "none",
-                }}
-              />
 
-              <select
-                value={form.rule_type}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, rule_type: e.target.value }))
-                }
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "7px",
-                  fontSize: "13px",
-                  marginBottom: "10px",
-                  cursor: "pointer",
-                  outline: "none",
-                }}
-              >
-                {RULE_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-
-              {form.rule_type === "keyword_match" && (
-                <input
-                  type="text"
-                  placeholder="Keyword to match (e.g. timeout)"
-                  value={form.keyword}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, keyword: e.target.value }))
-                  }
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "7px",
-                    fontSize: "13px",
-                    marginBottom: "10px",
-                    boxSizing: "border-box",
-                    outline: "none",
-                  }}
-                />
-              )}
-
-              {form.rule_type === "level_threshold" && (
-                <select
-                  value={form.level}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, level: e.target.value }))
-                  }
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "7px",
-                    fontSize: "13px",
-                    marginBottom: "10px",
-                    cursor: "pointer",
-                    outline: "none",
-                  }}
-                >
-                  <option value="">Select level</option>
-                  {["debug", "info", "warn", "error", "fatal"].map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              <div
-                style={{ display: "flex", gap: "10px", marginBottom: "10px" }}
-              >
-                <div style={{ flex: 1 }}>
-                  <label
-                    style={{
-                      fontSize: "11px",
-                      color: "#718096",
-                      display: "block",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    Threshold count
-                  </label>
-                  <input
-                    type="number"
-                    value={form.threshold_count}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        threshold_count: parseInt(e.target.value) || 0,
-                      }))
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "7px",
-                      fontSize: "13px",
-                      boxSizing: "border-box",
-                      outline: "none",
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label
-                    style={{
-                      fontSize: "11px",
-                      color: "#718096",
-                      display: "block",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    Window (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    value={form.window_minutes}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        window_minutes: parseInt(e.target.value) || 1,
-                      }))
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "7px",
-                      fontSize: "13px",
-                      boxSizing: "border-box",
-                      outline: "none",
-                    }}
-                  />
-                </div>
-              </div>
-
-              <input
-                type="text"
-                placeholder="Service (optional, scope to one service)"
-                value={form.service}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, service: e.target.value }))
-                }
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "7px",
-                  fontSize: "13px",
-                  marginBottom: "10px",
-                  boxSizing: "border-box",
-                  outline: "none",
-                }}
-              />
-
-              <input
-                type="text"
-                placeholder="Slack webhook URL (optional)"
-                value={form.slack_webhook_url}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, slack_webhook_url: e.target.value }))
-                }
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "7px",
-                  fontSize: "13px",
-                  marginBottom: "14px",
-                  boxSizing: "border-box",
-                  outline: "none",
-                }}
-              />
-
+        {activeTab === "rules" && (
+          <>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
               <button
-                onClick={handleCreate}
+                onClick={() => setCreating((c) => !c)}
                 style={{
-                  padding: "8px 20px",
-                  background: "#2d3748",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "8px",
-                  fontSize: "13px",
-                  cursor: "pointer",
+                  padding: "7px 16px",
+                  background: creating ? "#f8fafc" : "#0d9488",
+                  color: creating ? "#64748b" : "#fff",
+                  border: creating ? "1px solid #e2e8f0" : "none",
+                  borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "inherit",
+                  transition: "background 0.15s",
                 }}
               >
-                Create rule
+                {creating ? "Cancel" : "+ New alert rule"}
               </button>
             </div>
-          )}
 
-          {rules.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "50px",
-                border: "1px dashed #e2e8f0",
-                borderRadius: "12px",
-                color: "#a0aec0",
-                fontSize: "13px",
-              }}
-            >
-              No alert rules yet.
-            </div>
-          ) : (
-            rules.map((rule) => (
-              <div
-                key={rule.id}
-                style={{
-                  background: "#fff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "10px",
-                  padding: "14px 16px",
-                  marginBottom: "8px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: "500",
-                      color: "#1a202c",
-                    }}
+
+            {creating && (
+              <Section>
+                <SectionLabel>New alert rule</SectionLabel>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <input
+                    type="text"
+                    placeholder="Rule name (e.g. High error rate in billing)"
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    className="al-input"
+                  />
+                  <select
+                    value={form.rule_type}
+                    onChange={(e) => setForm((f) => ({ ...f, rule_type: e.target.value }))}
+                    className="al-select"
                   >
-                    {rule.name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      color: "#a0aec0",
-                      marginTop: "2px",
-                    }}
-                  >
-                    {describeRule(rule)}
-                  </div>
-                </div>
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
-                >
-                  <button
-                    onClick={() => handleToggle(rule)}
-                    style={{
-                      width: "34px",
-                      height: "19px",
-                      borderRadius: "99px",
-                      border: "none",
-                      background: rule.enabled ? "#2d3748" : "#e2e8f0",
-                      cursor: "pointer",
-                      position: "relative",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "14px",
-                        height: "14px",
-                        borderRadius: "50%",
-                        background: "#fff",
-                        position: "absolute",
-                        top: "2.5px",
-                        left: rule.enabled ? "17px" : "2.5px",
-                        transition: "left 0.2s",
-                      }}
+                    {RULE_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+
+                  {form.rule_type === "keyword_match" && (
+                    <input
+                      type="text"
+                      placeholder="Keyword to match (e.g. timeout)"
+                      value={form.keyword}
+                      onChange={(e) => setForm((f) => ({ ...f, keyword: e.target.value }))}
+                      className="al-input"
                     />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(rule.id)}
-                    style={{
-                      fontSize: "12px",
-                      color: "#9B2335",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </>
-      )}
+                  )}
+                  {form.rule_type === "level_threshold" && (
+                    <select
+                      value={form.level}
+                      onChange={(e) => setForm((f) => ({ ...f, level: e.target.value }))}
+                      className="al-select"
+                    >
+                      <option value="">Select level</option>
+                      {["debug", "info", "warn", "error", "fatal"].map((l) => (
+                        <option key={l} value={l}>{l}</option>
+                      ))}
+                    </select>
+                  )}
 
-      {activeTab === "history" && (
-        <div>
-          {triggers.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "50px",
-                border: "1px dashed #e2e8f0",
-                borderRadius: "12px",
-                color: "#a0aec0",
-                fontSize: "13px",
-              }}
-            >
-              No alerts have triggered yet.
-            </div>
-          ) : (
-            triggers.map((trigger) => (
-              <div
-                key={trigger.id}
-                style={{
-                  background: trigger.acknowledged ? "#fff" : "#FFF5F5",
-                  border: `1px solid ${
-                    trigger.acknowledged ? "#e2e8f0" : "#FEB2B2"
-                  }`,
-                  borderRadius: "10px",
-                  padding: "14px 16px",
-                  marginBottom: "8px",
-                }}
-              >
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, fontWeight: 500, color: "#64748b", display: "block", marginBottom: 4 }}>
+                        Threshold count
+                      </label>
+                      <input
+                        type="number"
+                        value={form.threshold_count}
+                        onChange={(e) => setForm((f) => ({ ...f, threshold_count: parseInt(e.target.value) || 0 }))}
+                        className="al-input"
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, fontWeight: 500, color: "#64748b", display: "block", marginBottom: 4 }}>
+                        Window (minutes)
+                      </label>
+                      <input
+                        type="number"
+                        value={form.window_minutes}
+                        onChange={(e) => setForm((f) => ({ ...f, window_minutes: parseInt(e.target.value) || 1 }))}
+                        className="al-input"
+                      />
+                    </div>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Service (optional — scope to one service)"
+                    value={form.service}
+                    onChange={(e) => setForm((f) => ({ ...f, service: e.target.value }))}
+                    className="al-input"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Slack webhook URL (optional)"
+                    value={form.slack_webhook_url}
+                    onChange={(e) => setForm((f) => ({ ...f, slack_webhook_url: e.target.value }))}
+                    className="al-input"
+                  />
+
+                  <div>
+                    <button
+                      onClick={handleCreate}
+                      style={{
+                        padding: "8px 20px",
+                        background: "#0d9488", color: "#fff",
+                        border: "none", borderRadius: 8,
+                        fontSize: 13, fontWeight: 600,
+                        cursor: "pointer", fontFamily: "inherit",
+                      }}
+                    >
+                      Create rule
+                    </button>
+                  </div>
+                </div>
+              </Section>
+            )}
+
+
+            {rules.length === 0 ? (
+              <EmptyState text="No alert rules yet. Create one above to get notified automatically." />
+            ) : (
+              rules.map((rule) => (
                 <div
+                  key={rule.id}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
+                    background: "#fff", border: "1px solid #e2e8f0",
+                    borderRadius: 10, padding: "14px 16px", marginBottom: 8,
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    transition: "box-shadow 0.15s",
                   }}
+                  onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.05)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}
                 >
                   <div>
-                    <div
-                      style={{
-                        fontSize: "13px",
-                        fontWeight: "500",
-                        color: "#1a202c",
-                      }}
-                    >
-                      {trigger.rule_name}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "11px",
-                        color: "#718096",
-                        marginTop: "2px",
-                      }}
-                    >
-                      {trigger.matched_count} matches ·{" "}
-                      {formatTime(trigger.triggered_at)}
-                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{rule.name}</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{describeRule(rule)}</div>
                   </div>
-                  {!trigger.acknowledged && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+
                     <button
-                      onClick={() => handleAck(trigger.id)}
+                      onClick={() => handleToggle(rule)}
                       style={{
-                        fontSize: "11px",
-                        color: "#3182CE",
-                        background: "none",
-                        border: "1px solid #BEE3F8",
-                        borderRadius: "6px",
-                        padding: "4px 10px",
-                        cursor: "pointer",
-                        flexShrink: 0,
+                        width: 34, height: 19, borderRadius: 99, border: "none",
+                        background: rule.enabled ? "#14b8a6" : "#e2e8f0",
+                        cursor: "pointer", position: "relative",
+                        transition: "background 0.2s",
                       }}
                     >
-                      Acknowledge
+                      <div style={{
+                        width: 14, height: 14, borderRadius: "50%",
+                        background: "#fff",
+                        position: "absolute", top: 2.5,
+                        left: rule.enabled ? 17 : 2.5,
+                        transition: "left 0.2s",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      }} />
                     </button>
-                  )}
+                    <button
+                      onClick={() => handleDelete(rule.id)}
+                      style={{
+                        fontSize: 12, color: "#be123c", fontWeight: 500,
+                        background: "none", border: "none", cursor: "pointer",
+                        fontFamily: "inherit", padding: "2px 4px",
+                        transition: "opacity 0.15s",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-      {activeTab === "anomalies" && (
-        <div>
-          <p style={{ fontSize: "12px", color: "#a0aec0", margin: "0 0 14px" }}>
-            Detected automatically by comparing current activity against your
-            project's learned baseline
-          </p>
-          {anomalies.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "50px",
-                border: "1px dashed #e2e8f0",
-                borderRadius: "12px",
-                color: "#a0aec0",
-                fontSize: "13px",
-              }}
-            >
-              No anomalies detected. The baseline needs about 30 minutes of
-              activity before detection becomes meaningful.
-            </div>
-          ) : (
-            anomalies.map((a) => (
-              <AnomalyCard key={a.id} anomaly={a} onAck={handleAckAnomaly} />
-            ))
-          )}
-        </div>
-      )}
-    </div>
+              ))
+            )}
+          </>
+        )}
+
+
+        {activeTab === "history" && (
+          <div>
+            {triggers.length === 0 ? (
+              <EmptyState text="No alerts have triggered yet." />
+            ) : (
+              triggers.map((trigger) => (
+                <div
+                  key={trigger.id}
+                  style={{
+                    background: trigger.acknowledged ? "#fff" : "#fff1f2",
+                    border: `1px solid ${trigger.acknowledged ? "#e2e8f0" : "#fecdd3"}`,
+                    borderRadius: 10, padding: "14px 16px", marginBottom: 8,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
+                        {trigger.rule_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                        {trigger.matched_count} matches · {formatTime(trigger.triggered_at)}
+                      </div>
+                    </div>
+                    {!trigger.acknowledged && (
+                      <button
+                        onClick={() => handleAck(trigger.id)}
+                        style={{
+                          fontSize: 11, color: "#0d9488", fontWeight: 600,
+                          background: "#f0fdfa", border: "1px solid #99f6e4",
+                          borderRadius: 6, padding: "4px 10px",
+                          cursor: "pointer", fontFamily: "inherit", flexShrink: 0,
+                        }}
+                      >
+                        Acknowledge
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+
+        {activeTab === "anomalies" && (
+          <div>
+            <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 14 }}>
+              Detected automatically by comparing current activity against your project's learned baseline
+            </p>
+            {anomalies.length === 0 ? (
+              <EmptyState text="No anomalies detected. The baseline needs about 30 minutes of activity before detection becomes meaningful." />
+            ) : (
+              anomalies.map((a) => (
+                <AnomalyCard key={a.id} anomaly={a} onAck={handleAckAnomaly} />
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 };
+
+const EmptyState = ({ text }) => (
+  <div style={{
+    textAlign: "center", padding: "48px 24px",
+    border: "1px dashed #e2e8f0", borderRadius: 12,
+    background: "#fff", color: "#94a3b8", fontSize: 13, lineHeight: 1.6,
+  }}>
+    {text}
+  </div>
+);
 
 export default ProjectAlerts;

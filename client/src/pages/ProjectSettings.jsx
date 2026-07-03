@@ -9,6 +9,34 @@ import {
   triggerCleanup,
 } from "../api/client.js";
 
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #f4f6f9;
+    color: #1e293b;
+    -webkit-font-smoothing: antialiased;
+  }
+  .ps-input {
+    width: 100%; padding: 8px 12px;
+    border: 1px solid #e2e8f0; border-radius: 7px;
+    font-size: 13px; font-family: inherit;
+    background: #fff; color: #1e293b; outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .ps-input:focus { border-color: #14b8a6; background: #f0fdfa; }
+  .ps-select {
+    width: 100%; padding: 8px 12px;
+    border: 1px solid #e2e8f0; border-radius: 7px;
+    font-size: 13px; font-family: inherit;
+    background: #fff; color: #1e293b;
+    cursor: pointer; outline: none;
+    transition: border-color 0.15s;
+  }
+  .ps-select:focus { border-color: #14b8a6; }
+`;
+
 const RETENTION_OPTIONS = [
   { value: 1, label: "1 day" },
   { value: 7, label: "7 days" },
@@ -21,9 +49,72 @@ const RETENTION_OPTIONS = [
   { value: null, label: "Keep forever" },
 ];
 
+const LEVEL_COLORS_BAR = {
+  debug: "#cbd5e1",
+  info: "#60a5fa",
+  warn: "#fbbf24",
+  error: "#f87171",
+  fatal: "#dc2626",
+};
+const LEVEL_COLORS_TEXT = {
+  debug: "#64748b",
+  info: "#2563eb",
+  warn: "#b45309",
+  error: "#be123c",
+  fatal: "#9f1239",
+};
+
+const Card = ({ children, danger }) => (
+  <div
+    style={{
+      background: danger ? "#fff1f2" : "#fff",
+      border: `1px solid ${danger ? "#fecdd3" : "#e2e8f0"}`,
+      borderRadius: 12,
+      padding: "20px",
+      marginBottom: 16,
+    }}
+  >
+    {children}
+  </div>
+);
+
+const CardHeader = ({ children, danger }) => (
+  <div
+    style={{
+      fontSize: 10,
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: "0.07em",
+      color: danger ? "#be123c" : "#94a3b8",
+      marginBottom: 14,
+    }}
+  >
+    {children}
+  </div>
+);
+
+const StatItem = ({ label, value }) => (
+  <div
+    style={{
+      background: "#f8fafc",
+      border: "1px solid #e2e8f0",
+      borderRadius: 8,
+      padding: 12,
+    }}
+  >
+    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>
+      {label}
+    </div>
+    <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+      {value}
+    </div>
+  </div>
+);
+
 const ProjectSettings = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
+
   const [project, setProject] = useState(null);
   const [copied, setCopied] = useState(false);
   const [rotating, setRotating] = useState(false);
@@ -90,23 +181,31 @@ const ProjectSettings = () => {
     try {
       await updateRetentionPolicy(projectId, { retention_days: retentionDays });
       const result = await triggerCleanup(projectId);
-
-      const fmt = (d) => d ? new Date(d).toLocaleString() : "unknown";
-
+      const fmt = (d) => (d ? new Date(d).toLocaleString() : "unknown");
       if (result.deletedCount > 0) {
-        alert(`Cleanup complete — ${result.deletedCount} logs deleted.\nCutoff: ${fmt(result.cutoff)}`);
-      } else if (result.oldestLog && result.cutoff && new Date(result.oldestLog) >= new Date(result.cutoff)) {
         alert(
-          `Nothing to delete — all ${result.totalLogs ?? ""} logs are newer than the retention period.\n\n` +
-          `Your oldest log: ${fmt(result.oldestLog)}\n` +
-          `Retention cutoff: ${fmt(result.cutoff)}\n\n` +
-          `Logs must be older than ${result.retentionDays} day(s) to be deleted.`
+          `Cleanup complete — ${
+            result.deletedCount
+          } logs deleted.\nCutoff: ${fmt(result.cutoff)}`
+        );
+      } else if (
+        result.oldestLog &&
+        result.cutoff &&
+        new Date(result.oldestLog) >= new Date(result.cutoff)
+      ) {
+        alert(
+          `Nothing to delete — all ${
+            result.totalLogs ?? ""
+          } logs are newer than the retention period.\n\n` +
+            `Your oldest log: ${fmt(result.oldestLog)}\n` +
+            `Retention cutoff: ${fmt(result.cutoff)}\n\n` +
+            `Logs must be older than ${result.retentionDays} day(s) to be deleted.`
         );
       } else {
         alert(
-          `Cleanup ran — 0 logs deleted.\n` +
-          `Cutoff used: ${fmt(result.cutoff)}\n` +
-          `Oldest log: ${fmt(result.oldestLog)}`
+          `Cleanup ran — 0 logs deleted.\nCutoff used: ${fmt(
+            result.cutoff
+          )}\nOldest log: ${fmt(result.oldestLog)}`
         );
       }
       getStorageStats(projectId).then(setStorageStats);
@@ -122,7 +221,19 @@ const ProjectSettings = () => {
   };
 
   if (!project)
-    return <div style={{ padding: "40px", color: "#a0aec0" }}>Loading...</div>;
+    return (
+      <div
+        style={{
+          padding: 40,
+          color: "#94a3b8",
+          fontFamily: "'Inter', system-ui, sans-serif",
+        }}
+      >
+        Loading…
+      </div>
+    );
+
+  const formatNumber = (n) => parseInt(n || 0).toLocaleString();
 
   const curlExample = `curl -X POST ${
     import.meta.env.VITE_API_URL
@@ -131,482 +242,457 @@ const ProjectSettings = () => {
   -H "X-API-Key: ${project.api_key}" \\
   -d '{"logs":[{"level":"info","message":"Hello","service":"api"}]}'`;
 
-  const formatNumber = (n) => parseInt(n || 0).toLocaleString();
-
   return (
-    <div style={{ maxWidth: "640px", margin: "0 auto", padding: "40px 24px" }}>
-      <button
-        onClick={() => navigate(`/projects/${projectId}`)}
-        style={{
-          background: "none",
-          border: "none",
-          color: "#718096",
-          cursor: "pointer",
-          fontSize: "13px",
-          padding: 0,
-          marginBottom: "24px",
-        }}
-      >
-        ← Back to logs
-      </button>
+    <>
+      <style>{CSS}</style>
 
-      <h1
-        style={{
-          fontSize: "20px",
-          fontWeight: "600",
-          color: "#1a202c",
-          margin: "0 0 4px",
-        }}
-      >
-        {project.name}
-      </h1>
-      <p style={{ fontSize: "13px", color: "#718096", margin: "0 0 28px" }}>
-        Project settings
-      </p>
-      {storageStats?.storage_warning && (
-        <div
-          style={{
-            background: "#FEFCBF",
-            border: "1px solid #F6E05E",
-            borderRadius: "10px",
-            padding: "12px 16px",
-            marginBottom: "20px",
-            fontSize: "13px",
-            color: "#744210",
-          }}
-        >
-          This project has {formatNumber(storageStats.total_logs)} logs —
-          approaching your storage warning threshold. Consider shortening your
-          retention period.
-        </div>
-      )}
+
       <div
         style={{
-          background: "#F7FAFC",
-          border: "1px solid #e2e8f0",
-          borderRadius: "12px",
-          padding: "20px",
-          marginBottom: "16px",
+          background: "#fff",
+          borderBottom: "1px solid #e2e8f0",
+          height: 52,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 24px",
+          gap: 12,
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+          fontFamily: "'Inter', system-ui, sans-serif",
         }}
       >
-        <h3
+        <div
           style={{
-            fontSize: "13px",
-            fontWeight: "600",
-            color: "#718096",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            margin: "0 0 12px",
+            width: 28,
+            height: 28,
+            background: "linear-gradient(135deg, #14b8a6, #0d9488)",
+            borderRadius: 7,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          API key
-        </h3>
-        <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-          <code
-            style={{
-              flex: 1,
-              background: "#1a202c",
-              color: "#68D391",
-              padding: "10px 12px",
-              borderRadius: "8px",
-              fontSize: "12px",
-              overflowX: "auto",
-              whiteSpace: "nowrap",
-            }}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#fff"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            {project.api_key}
-          </code>
-          <button
-            onClick={handleCopy}
-            style={{
-              padding: "0 16px",
-              background: copied ? "#276749" : "#2d3748",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "13px",
-              cursor: "pointer",
-              flexShrink: 0,
-            }}
-          >
-            {copied ? "Copied" : "Copy"}
-          </button>
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
         </div>
         <button
-          onClick={handleRotate}
-          disabled={rotating}
+          onClick={() => navigate(`/projects/${projectId}`)}
           style={{
-            fontSize: "12px",
-            color: "#9B2335",
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            fontSize: 13,
+            fontWeight: 500,
+            color: "#64748b",
             background: "none",
-            border: "1px solid #FEB2B2",
-            borderRadius: "6px",
-            padding: "5px 12px",
-            cursor: rotating ? "not-allowed" : "pointer",
+            border: "none",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            padding: "5px 8px",
+            borderRadius: 6,
+            transition: "color 0.15s, background 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "#0f172a";
+            e.currentTarget.style.background = "#f1f5f9";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "#64748b";
+            e.currentTarget.style.background = "none";
           }}
         >
-          {rotating ? "Rotating..." : "Rotate key"}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Logs
         </button>
+        <span style={{ color: "#cbd5e1", fontSize: 16 }}>/</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+          {project.name}
+        </span>
+        <span style={{ color: "#cbd5e1", fontSize: 16 }}>/</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "#64748b" }}>
+          Settings
+        </span>
       </div>
-      <div
-        style={{
-          background: "#F7FAFC",
-          border: "1px solid #e2e8f0",
-          borderRadius: "12px",
-          padding: "20px",
-          marginBottom: "16px",
-        }}
-      >
-        <h3
-          style={{
-            fontSize: "13px",
-            fontWeight: "600",
-            color: "#718096",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            margin: "0 0 12px",
-          }}
-        >
-          Send your first log
-        </h3>
-        <pre
-          style={{
-            background: "#1a202c",
-            color: "#cbd5e0",
-            padding: "14px",
-            borderRadius: "8px",
-            fontSize: "11px",
-            overflowX: "auto",
-            margin: 0,
-            lineHeight: 1.6,
-          }}
-        >
-          {curlExample}
-        </pre>
-      </div>
-      {storageStats && (
-        <div
-          style={{
-            background: "#F7FAFC",
-            border: "1px solid #e2e8f0",
-            borderRadius: "12px",
-            padding: "20px",
-            marginBottom: "16px",
-          }}
-        >
-          <h3
-            style={{
-              fontSize: "13px",
-              fontWeight: "600",
-              color: "#718096",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              margin: "0 0 16px",
-            }}
-          >
-            Storage
-          </h3>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "12px",
-              marginBottom: "16px",
-            }}
-          >
-            <StatItem
-              label="Total logs"
-              value={formatNumber(storageStats.total_logs)}
-            />
-            <StatItem
-              label="Estimated size"
-              value={storageStats.estimated_size || "—"}
-            />
-            <StatItem
-              label="Oldest log"
-              value={
-                storageStats.oldest_log
-                  ? new Date(storageStats.oldest_log).toLocaleDateString()
-                  : "—"
-              }
-            />
-            <StatItem
-              label="Newest log"
-              value={
-                storageStats.newest_log
-                  ? new Date(storageStats.newest_log).toLocaleDateString()
-                  : "—"
-              }
-            />
-          </div>
-          {parseInt(storageStats.total_logs) > 0 && (
-            <div style={{ marginBottom: "16px" }}>
-              <div
-                style={{
-                  fontSize: "11px",
-                  color: "#a0aec0",
-                  marginBottom: "6px",
-                }}
-              >
-                Level breakdown
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  height: "8px",
-                  borderRadius: "99px",
-                  overflow: "hidden",
-                  gap: "1px",
-                }}
-              >
-                {[
-                  {
-                    level: "debug",
-                    count: storageStats.debug_count,
-                    color: "#CBD5E0",
-                  },
-                  {
-                    level: "info",
-                    count: storageStats.info_count,
-                    color: "#90CDF4",
-                  },
-                  {
-                    level: "warn",
-                    count: storageStats.warn_count,
-                    color: "#F6E05E",
-                  },
-                  {
-                    level: "error",
-                    count: storageStats.error_count,
-                    color: "#FEB2B2",
-                  },
-                  {
-                    level: "fatal",
-                    count: storageStats.fatal_count,
-                    color: "#9B2335",
-                  },
-                ]
-                  .filter((l) => parseInt(l.count) > 0)
-                  .map((l) => (
-                    <div
-                      key={l.level}
-                      title={`${l.level}: ${formatNumber(l.count)}`}
-                      style={{
-                        flex: parseInt(l.count),
-                        background: l.color,
-                        minWidth: "4px",
-                      }}
-                    />
-                  ))}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "12px",
-                  marginTop: "6px",
-                  flexWrap: "wrap",
-                }}
-              >
-                {[
-                  {
-                    level: "debug",
-                    count: storageStats.debug_count,
-                    color: "#718096",
-                  },
-                  {
-                    level: "info",
-                    count: storageStats.info_count,
-                    color: "#2B6CB0",
-                  },
-                  {
-                    level: "warn",
-                    count: storageStats.warn_count,
-                    color: "#744210",
-                  },
-                  {
-                    level: "error",
-                    count: storageStats.error_count,
-                    color: "#9B2335",
-                  },
-                  {
-                    level: "fatal",
-                    count: storageStats.fatal_count,
-                    color: "#9B2335",
-                  },
-                ]
-                  .filter((l) => parseInt(l.count) > 0)
-                  .map((l) => (
-                    <span
-                      key={l.level}
-                      style={{ fontSize: "11px", color: l.color }}
-                    >
-                      {l.level} {formatNumber(l.count)}
-                    </span>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {storageStats.last_cleanup && (
-            <div style={{ fontSize: "11px", color: "#a0aec0" }}>
-              Last cleanup:{" "}
-              {new Date(storageStats.last_cleanup.run_at).toLocaleString()} —{" "}
-              {formatNumber(storageStats.last_cleanup.deleted_count)} logs
-              deleted
-            </div>
-          )}
-        </div>
-      )}
 
       <div
         style={{
-          background: "#F7FAFC",
-          border: "1px solid #e2e8f0",
-          borderRadius: "12px",
-          padding: "20px",
-          marginBottom: "16px",
+          maxWidth: 640,
+          margin: "0 auto",
+          padding: "32px 24px",
+          fontFamily: "'Inter', system-ui, sans-serif",
         }}
       >
-        <h3
+        <h1
           style={{
-            fontSize: "13px",
-            fontWeight: "600",
-            color: "#718096",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            margin: "0 0 12px",
+            fontSize: 20,
+            fontWeight: 700,
+            color: "#0f172a",
+            marginBottom: 4,
           }}
         >
-          Retention policy
-        </h3>
-        <p style={{ fontSize: "12px", color: "#718096", margin: "0 0 14px" }}>
-          Logs older than this are automatically deleted every night at 2am.
+          {project.name}
+        </h1>
+        <p style={{ fontSize: 13, color: "#64748b", marginBottom: 24 }}>
+          Project settings
         </p>
 
-        <select
-          value={retentionDays === null ? "null" : retentionDays}
-          onChange={(e) =>
-            setRetentionDays(
-              e.target.value === "null" ? null : parseInt(e.target.value)
-            )
-          }
-          style={{
-            width: "100%",
-            padding: "8px 12px",
-            border: "1px solid #e2e8f0",
-            borderRadius: "7px",
-            fontSize: "13px",
-            marginBottom: "12px",
-            cursor: "pointer",
-            outline: "none",
-          }}
-        >
-          {RETENTION_OPTIONS.map((o) => (
-            <option
-              key={String(o.value)}
-              value={o.value === null ? "null" : o.value}
+
+        {storageStats?.storage_warning && (
+          <div
+            style={{
+              background: "#fffbeb",
+              border: "1px solid #fde68a",
+              borderRadius: 10,
+              padding: "12px 16px",
+              marginBottom: 20,
+              fontSize: 13,
+              color: "#b45309",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ flexShrink: 0, marginTop: 1 }}
             >
-              {o.label}
-            </option>
-          ))}
-        </select>
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            This project has {formatNumber(storageStats.total_logs)} logs —
+            approaching your storage warning threshold. Consider shortening your
+            retention period.
+          </div>
+        )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+
+        <Card>
+          <CardHeader>API key</CardHeader>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <code
+              style={{
+                flex: 1,
+                background: "#0f172a",
+                color: "#34d399",
+                padding: "10px 12px",
+                borderRadius: 8,
+                fontSize: 12,
+                overflowX: "auto",
+                whiteSpace: "nowrap",
+                fontFamily: "ui-monospace, 'Cascadia Code', monospace",
+              }}
+            >
+              {project.api_key}
+            </code>
+            <button
+              onClick={handleCopy}
+              style={{
+                padding: "0 16px",
+                background: copied ? "#059669" : "#0d9488",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                flexShrink: 0,
+                transition: "background 0.15s",
+              }}
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
           <button
-            onClick={handleSaveRetention}
-            disabled={savingRetention}
+            onClick={handleRotate}
+            disabled={rotating}
             style={{
-              padding: "7px 18px",
-              background: "#2d3748",
+              fontSize: 12,
+              color: "#be123c",
+              fontWeight: 500,
+              background: "#fff1f2",
+              border: "1px solid #fecdd3",
+              borderRadius: 6,
+              padding: "5px 12px",
+              cursor: rotating ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            {rotating ? "Rotating…" : "Rotate key"}
+          </button>
+        </Card>
+
+
+        <Card>
+          <CardHeader>Send your first log</CardHeader>
+          <pre
+            style={{
+              background: "#0f172a",
+              color: "#cbd5e1",
+              padding: "14px 16px",
+              borderRadius: 9,
+              fontSize: 11.5,
+              overflowX: "auto",
+              margin: 0,
+              lineHeight: 1.65,
+              fontFamily: "ui-monospace, 'Cascadia Code', monospace",
+            }}
+          >
+            {curlExample}
+          </pre>
+        </Card>
+
+
+        {storageStats && (
+          <Card>
+            <CardHeader>Storage</CardHeader>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+                marginBottom: 16,
+              }}
+            >
+              <StatItem
+                label="Total logs"
+                value={formatNumber(storageStats.total_logs)}
+              />
+              <StatItem
+                label="Estimated size"
+                value={storageStats.estimated_size || "—"}
+              />
+              <StatItem
+                label="Oldest log"
+                value={
+                  storageStats.oldest_log
+                    ? new Date(storageStats.oldest_log).toLocaleDateString()
+                    : "—"
+                }
+              />
+              <StatItem
+                label="Newest log"
+                value={
+                  storageStats.newest_log
+                    ? new Date(storageStats.newest_log).toLocaleDateString()
+                    : "—"
+                }
+              />
+            </div>
+
+            {parseInt(storageStats.total_logs) > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div
+                  style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}
+                >
+                  Level breakdown
+                </div>
+                {/* Bar */}
+                <div
+                  style={{
+                    display: "flex",
+                    height: 8,
+                    borderRadius: 99,
+                    overflow: "hidden",
+                    gap: 1,
+                  }}
+                >
+                  {[
+                    { level: "debug", count: storageStats.debug_count },
+                    { level: "info", count: storageStats.info_count },
+                    { level: "warn", count: storageStats.warn_count },
+                    { level: "error", count: storageStats.error_count },
+                    { level: "fatal", count: storageStats.fatal_count },
+                  ]
+                    .filter((l) => parseInt(l.count) > 0)
+                    .map((l) => (
+                      <div
+                        key={l.level}
+                        title={`${l.level}: ${formatNumber(l.count)}`}
+                        style={{
+                          flex: parseInt(l.count),
+                          background: LEVEL_COLORS_BAR[l.level],
+                          minWidth: 4,
+                        }}
+                      />
+                    ))}
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    marginTop: 6,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {[
+                    { level: "debug", count: storageStats.debug_count },
+                    { level: "info", count: storageStats.info_count },
+                    { level: "warn", count: storageStats.warn_count },
+                    { level: "error", count: storageStats.error_count },
+                    { level: "fatal", count: storageStats.fatal_count },
+                  ]
+                    .filter((l) => parseInt(l.count) > 0)
+                    .map((l) => (
+                      <span
+                        key={l.level}
+                        style={{
+                          fontSize: 11,
+                          color: LEVEL_COLORS_TEXT[l.level],
+                        }}
+                      >
+                        {l.level} {formatNumber(l.count)}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {storageStats.last_cleanup && (
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                Last cleanup:{" "}
+                {new Date(storageStats.last_cleanup.run_at).toLocaleString()} —{" "}
+                {formatNumber(storageStats.last_cleanup.deleted_count)} logs
+                deleted
+              </div>
+            )}
+          </Card>
+        )}
+
+
+        <Card>
+          <CardHeader>Retention policy</CardHeader>
+          <p style={{ fontSize: 12, color: "#64748b", marginBottom: 14 }}>
+            Logs older than this are automatically deleted every night at 2am.
+          </p>
+          <select
+            value={retentionDays === null ? "null" : retentionDays}
+            onChange={(e) =>
+              setRetentionDays(
+                e.target.value === "null" ? null : parseInt(e.target.value)
+              )
+            }
+            className="ps-select"
+            style={{ marginBottom: 12 }}
+          >
+            {RETENTION_OPTIONS.map((o) => (
+              <option
+                key={String(o.value)}
+                value={o.value === null ? "null" : o.value}
+              >
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={handleSaveRetention}
+              disabled={savingRetention}
+              style={{
+                padding: "7px 18px",
+                background: savingRetention ? "#99f6e4" : "#0d9488",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: savingRetention ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+                transition: "background 0.15s",
+              }}
+            >
+              {savingRetention ? "Saving…" : "Save"}
+            </button>
+            {savedRetention && (
+              <span style={{ fontSize: 12, color: "#059669", fontWeight: 600 }}>
+                ✓ Saved
+              </span>
+            )}
+            <button
+              onClick={handleCleanup}
+              disabled={cleaning}
+              style={{
+                padding: "7px 14px",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "#64748b",
+                cursor: cleaning ? "not-allowed" : "pointer",
+                marginLeft: "auto",
+                fontFamily: "inherit",
+              }}
+            >
+              {cleaning ? "Cleaning…" : "Run cleanup now"}
+            </button>
+          </div>
+        </Card>
+
+
+        <Card danger>
+          <CardHeader danger>Danger zone</CardHeader>
+          <p style={{ fontSize: 13, color: "#64748b", marginBottom: 14 }}>
+            Permanently delete this project and all of its logs. This action
+            cannot be undone.
+          </p>
+          <button
+            onClick={handleDelete}
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
               color: "#fff",
+              background: "#be123c",
               border: "none",
-              borderRadius: "8px",
-              fontSize: "13px",
-              cursor: savingRetention ? "not-allowed" : "pointer",
-              opacity: savingRetention ? 0.7 : 1,
+              borderRadius: 8,
+              padding: "8px 16px",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "background 0.15s",
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#9f1239")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#be123c")}
           >
-            {savingRetention ? "Saving..." : "Save"}
+            Delete project
           </button>
-          {savedRetention && (
-            <span style={{ fontSize: "12px", color: "#38A169" }}>Saved</span>
-          )}
-
-          <button
-            onClick={handleCleanup}
-            disabled={cleaning}
-            style={{
-              padding: "7px 14px",
-              background: "none",
-              border: "1px solid #e2e8f0",
-              borderRadius: "8px",
-              fontSize: "12px",
-              color: "#718096",
-              cursor: cleaning ? "not-allowed" : "pointer",
-              marginLeft: "auto",
-            }}
-          >
-            {cleaning ? "Cleaning..." : "Run cleanup now"}
-          </button>
-        </div>
+        </Card>
       </div>
-
-      <div
-        style={{
-          background: "#FFF5F5",
-          border: "1px solid #FEB2B2",
-          borderRadius: "12px",
-          padding: "20px",
-        }}
-      >
-        <h3
-          style={{
-            fontSize: "13px",
-            fontWeight: "600",
-            color: "#9B2335",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            margin: "0 0 12px",
-          }}
-        >
-          Danger zone
-        </h3>
-        <button
-          onClick={handleDelete}
-          style={{
-            fontSize: "13px",
-            color: "#fff",
-            background: "#C53030",
-            border: "none",
-            borderRadius: "8px",
-            padding: "8px 16px",
-            cursor: "pointer",
-          }}
-        >
-          Delete project
-        </button>
-      </div>
-    </div>
+    </>
   );
 };
-
-const StatItem = ({ label, value }) => (
-  <div
-    style={{
-      background: "#fff",
-      border: "1px solid #e2e8f0",
-      borderRadius: "8px",
-      padding: "12px",
-    }}
-  >
-    <div style={{ fontSize: "11px", color: "#a0aec0", marginBottom: "4px" }}>
-      {label}
-    </div>
-    <div style={{ fontSize: "14px", fontWeight: "600", color: "#1a202c" }}>
-      {value}
-    </div>
-  </div>
-);
 
 export default ProjectSettings;

@@ -1,21 +1,20 @@
 import { useState } from 'react';
 
-const LEVEL_COLORS = {
-  warn:  '#744210',
-  error: '#9B2335',
-  fatal: '#fff',
-};
-const LEVEL_BG = {
-  warn:  '#FEFCBF',
-  error: '#FFF5F5',
-  fatal: '#9B2335',
+const LEVEL_STYLE = {
+  warn:  { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+  error: { bg: "#fff1f2", color: "#be123c", border: "#fecdd3" },
+  fatal: { bg: "#fff1f2", color: "#9f1239", border: "#fda4af" },
 };
 
 const ClusterCard = ({ cluster, onAnalyze }) => {
   const [analysis, setAnalysis] = useState(
-    cluster.ai_summary ? { summary: cluster.ai_summary, likely_cause: cluster.ai_likely_cause } : null
+    cluster.ai_summary
+      ? { summary: cluster.ai_summary, likely_cause: cluster.ai_likely_cause }
+      : null
   );
   const [loading, setLoading] = useState(false);
+
+  const s = LEVEL_STYLE[cluster.level] || LEVEL_STYLE.error;
 
   const handleAnalyze = async () => {
     if (analysis) return;
@@ -30,55 +29,109 @@ const ClusterCard = ({ cluster, onAnalyze }) => {
 
   const formatTime = (ts) => {
     const diffMin = Math.floor((Date.now() - new Date(ts)) / 60000);
-    if (diffMin < 1) return 'just now';
+    if (diffMin < 1)  return 'just now';
     if (diffMin < 60) return `${diffMin}m ago`;
     return `${Math.floor(diffMin / 60)}h ago`;
   };
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '10px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', background: LEVEL_BG[cluster.level], color: LEVEL_COLORS[cluster.level], borderRadius: '4px', padding: '2px 7px', flexShrink: 0 }}>
+    <div
+      style={{
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: 12,
+        padding: "14px 16px",
+        marginBottom: 10,
+        fontFamily: "'Inter', system-ui, sans-serif",
+        transition: "box-shadow 0.15s, border-color 0.15s",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.06)";
+        e.currentTarget.style.borderColor = "#cbd5e1";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = "none";
+        e.currentTarget.style.borderColor = "#e2e8f0";
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+          <span style={{
+            fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: "0.08em",
+            background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+            borderRadius: 5, padding: '2px 8px', flexShrink: 0,
+          }}>
             {cluster.level}
           </span>
           {cluster.service && (
-            <span style={{ fontSize: '11px', color: '#5a67d8', fontWeight: '500', flexShrink: 0 }}>
+            <span style={{
+              fontSize: 11, color: "#0d9488", fontWeight: 600, flexShrink: 0,
+              background: "#f0fdfa", border: "1px solid #99f6e4",
+              borderRadius: 5, padding: "1px 7px",
+            }}>
               {cluster.service}
             </span>
           )}
-          <span style={{ fontSize: '13px', color: '#1a202c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace' }}>
+          <span style={{
+            fontSize: 12.5, color: "#334155",
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            fontFamily: "ui-monospace, 'Cascadia Code', monospace",
+          }}>
             {cluster.representative_message}
           </span>
         </div>
-        <span style={{ fontSize: '12px', fontWeight: '700', color: '#9B2335', background: '#FFF5F5', borderRadius: '99px', padding: '2px 10px', flexShrink: 0 }}>
+        <span style={{
+          fontSize: 12, fontWeight: 700, color: "#be123c",
+          background: "#fff1f2", border: "1px solid #fecdd3",
+          borderRadius: 99, padding: "2px 10px", flexShrink: 0,
+        }}>
           ×{cluster.occurrence_count}
         </span>
       </div>
 
-      <div style={{ fontSize: '11px', color: '#a0aec0', marginBottom: analysis || loading ? '10px' : 0 }}>
+   
+      <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: analysis || loading ? 10 : 0 }}>
         First seen {formatTime(cluster.first_seen)} · Last seen {formatTime(cluster.last_seen)}
       </div>
 
+  
       {!analysis && !loading && (
         <button
           onClick={handleAnalyze}
-          style={{ fontSize: '12px', color: '#5A67D8', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          style={{
+            fontSize: 12, color: "#0d9488", fontWeight: 600,
+            background: "#f0fdfa", border: "1px solid #99f6e4",
+            borderRadius: 7, padding: "5px 12px",
+            cursor: 'pointer', fontFamily: 'inherit',
+            marginTop: 8,
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#ccfbf1")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#f0fdfa")}
         >
           Analyze with AI →
         </button>
       )}
 
       {loading && (
-        <div style={{ fontSize: '12px', color: '#a0aec0' }}>Analyzing...</div>
+        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+          Analyzing…
+        </div>
       )}
 
       {analysis && (
-        <div style={{ background: '#F7FAFF', border: '1px solid #C3DAFE', borderRadius: '8px', padding: '10px 12px', marginTop: '4px' }}>
-          <div style={{ fontSize: '12px', color: '#2d3748', lineHeight: 1.5, marginBottom: '6px' }}>
+        <div style={{
+          background: "#f0fdfa",
+          border: "1px solid #99f6e4",
+          borderRadius: 10, padding: "12px 14px", marginTop: 10,
+        }}>
+          <div style={{ fontSize: 12.5, color: "#1e293b", lineHeight: 1.6, marginBottom: 8 }}>
             {analysis.summary}
           </div>
-          <div style={{ fontSize: '11px', color: '#5A67D8', fontWeight: '500' }}>
+          <div style={{ fontSize: 11, color: "#0d9488", fontWeight: 600 }}>
             Likely cause: {analysis.likely_cause}
           </div>
         </div>
