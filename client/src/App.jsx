@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import Spinner from "./components/Spinner.jsx";
 import { useAuth } from "./hooks/useAuth.jsx";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -21,14 +22,7 @@ const WakingUpSplash = () => (
     fontFamily: "'Inter', system-ui, sans-serif",
   }}>
 
-    <div style={{
-      width: 52,
-      height: 52,
-      border: "4px solid rgba(99,102,241,0.25)",
-      borderTopColor: "#6366f1",
-      borderRadius: "50%",
-      animation: "spin 0.9s linear infinite",
-    }} />
+    <Spinner size={50} color1="#fff" color2="#289E49" />
 
     <div style={{ textAlign: "center", maxWidth: 340 }}>
       <p style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#f1f5f9" }}>
@@ -64,7 +58,6 @@ const WakingUpSplash = () => (
     </div>
 
     <style>{`
-      @keyframes spin { to { transform: rotate(360deg); } }
       @keyframes pulse {
         0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
         40%            { opacity: 1;   transform: scale(1);   }
@@ -83,15 +76,7 @@ const LoadingScreen = () => (
     justifyContent: "center",
     background: "#0f172a",
   }}>
-    <div style={{
-      width: 40,
-      height: 40,
-      border: "3px solid rgba(99,102,241,0.25)",
-      borderTopColor: "#6366f1",
-      borderRadius: "50%",
-      animation: "spin 0.9s linear infinite",
-    }} />
-    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <Spinner size={50} color1="#fff" color2="#289E49" />
   </div>
 );
 

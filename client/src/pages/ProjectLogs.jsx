@@ -13,6 +13,7 @@ import LogDetail from "../components/LogDetail.jsx";
 import NaturalQueryBar from "../components/NaturalQueryBar.jsx";
 import ClusterCard from "../components/ClusterCard.jsx";
 import LogsInsightStrip from "../components/LogsInsightStrip.jsx";
+import Spinner from "../components/Spinner.jsx";
 
 
 const CSS = `
@@ -258,9 +259,11 @@ const CSS = `
   }
   .pl-loading {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100px;
+    gap: 12px;
     font-size: 13px;
     color: #94a3b8;
   }
@@ -502,7 +505,10 @@ const ProjectLogs = () => {
 
             <div className="pl-log-list">
               {loading && historicalLogs.length === 0 ? (
-                <div className="pl-loading">Loading logs…</div>
+                <div className="pl-loading">
+                  <Spinner size={36} color1="#e2e8f0" color2="#289E49" />
+                  <span>Loading logs…</span>
+                </div>
               ) : allLogs.length === 0 ? (
                 <div className="pl-empty">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -557,7 +563,10 @@ const ProjectLogs = () => {
               Similar errors grouped together — last 24 hours
             </p>
             {clustersLoading ? (
-              <div className="pl-loading">Grouping errors…</div>
+              <div className="pl-loading">
+                <Spinner size={36} color1="#e2e8f0" color2="#289E49" />
+                <span>Grouping errors…</span>
+              </div>
             ) : clusters.length === 0 ? (
               <div className="pl-empty">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

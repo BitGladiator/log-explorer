@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { logout, getProjects, createProject, getDashboardStats } from '../api/client.js';
+import Spinner from '../components/Spinner.jsx';
 
 
 const CSS = `
@@ -328,7 +329,16 @@ const CSS = `
     text-align: center; padding: 60px 20px;
   }
   .db-empty p { font-size: 14px; color: #94a3b8; margin-bottom: 16px; }
-  .db-loading { text-align: center; padding: 48px 0; color: #94a3b8; font-size: 13px; }
+  .db-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 0;
+    gap: 16px;
+    color: #94a3b8;
+    font-size: 13px;
+  }
 
   .tooltip {
     position: absolute;
@@ -765,7 +775,7 @@ const Dashboard = () => {
               </div>
             </div>
             {loading
-              ? <div className="chart-empty">Loading activity…</div>
+              ? <div className="chart-empty" style={{ flexDirection: 'column', gap: 12 }}><Spinner size={36} color1="#e2e8f0" color2="#14b8a6" /><span>Loading activity…</span></div>
               : <ActivityChart hourly={stats?.hourly} />
             }
           </div>
@@ -779,7 +789,7 @@ const Dashboard = () => {
               </div>
             </div>
             {loading
-              ? <div className="chart-empty" style={{ height: 120 }}>Loading…</div>
+              ? <div className="chart-empty" style={{ height: 120, flexDirection: 'column', gap: 12 }}><Spinner size={30} color1="#e2e8f0" color2="#14b8a6" /><span>Loading…</span></div>
               : <DonutChart data={stats?.levelDistribution} />
             }
           </div>
@@ -855,9 +865,7 @@ const Dashboard = () => {
 
           {loading ? (
             <div className="db-loading">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" style={{ display: 'block', margin: '0 auto 8px' }}>
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-              </svg>
+              <Spinner size={40} color1="#e2e8f0" color2="#289E49" />
               Loading projects…
             </div>
           ) : projects.length === 0 ? (

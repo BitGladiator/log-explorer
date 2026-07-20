@@ -8,6 +8,7 @@ import {
   updateRetentionPolicy,
   triggerCleanup,
 } from "../api/client.js";
+import Spinner from "../components/Spinner.jsx";
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -224,12 +225,21 @@ const ProjectSettings = () => {
     return (
       <div
         style={{
-          padding: 40,
-          color: "#94a3b8",
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          background: "#f4f6f9",
           fontFamily: "'Inter', system-ui, sans-serif",
+          color: "#94a3b8",
+          fontSize: 13,
         }}
       >
-        Loading…
+        <Spinner size={44} color1="#e2e8f0" color2="#289E49" />
+        Loading settings…
       </div>
     );
 

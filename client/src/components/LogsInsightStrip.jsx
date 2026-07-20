@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { getLogTimeseries } from "../api/client.js";
+import Spinner from "./Spinner.jsx";
 
 const TIME_RANGES = [
   { label: "1h", ms: 60 * 60 * 1000, buckets: 12 },
@@ -608,10 +609,13 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
               height: 64,
               display: "flex",
               alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
               color: "#94a3b8",
               fontSize: 12,
             }}
           >
+            <Spinner size={28} color1="#e2e8f0" color2="#289E49" />
             Loading chart…
           </div>
         ) : (
