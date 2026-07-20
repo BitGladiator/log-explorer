@@ -10,14 +10,28 @@ const apiFetch = async (path, options = {}) => {
   const headers = { "Content-Type": "application/json", ...options.headers };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE_URL}/api${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}/api${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
+  } catch (networkErr) {
+    // Network-level failure (server offline / DNS / CORS preflight failed).
+    // Attach a flag so callers can distinguish this from an auth failure.
+    const err = new Error(networkErr.message || "Network error");
+    err.isNetworkError = true;
+    err.status = 0;
+    throw err;
+  }
+
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: "Request failed" }));
-    throw error;
+    const body = await res.json().catch(() => ({ error: "Request failed" }));
+    const err = Object.assign(new Error(body.error || "Request failed"), body);
+    err.status = res.status;
+    err.isNetworkError = false;
+    throw err;
   }
   return res.json();
 };

@@ -30,8 +30,7 @@ const app = express();
 const httpServer = createServer(app);
 const queryRoutes = require("./routes/query");
 const clusterRoutes = require("./routes/clusters");
-// Migrations run asynchronously after the server is already listening so the
-// port opens immediately and the first /me request is not blocked by this I/O.
+
 const runMigrations = () =>
   new Promise((resolve, reject) => {
     logger.info("Running migrations...");
