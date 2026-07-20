@@ -43,7 +43,7 @@ const ClusterCard = ({ cluster, onAnalyze }) => {
         borderRadius: 12,
         padding: "14px 16px",
         marginBottom: 10,
-        fontFamily: "'Inter', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
         transition: "box-shadow 0.15s, border-color 0.15s",
       }}
       onMouseEnter={(e) => {

@@ -30,7 +30,7 @@ const LogDetail = ({ log, onClose }) => {
           display: "flex", flexDirection: "column",
           boxShadow: "-8px 0 32px rgba(15,23,42,0.1)",
           overflowY: "auto",
-          fontFamily: "'Inter', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
         }}
       >
      

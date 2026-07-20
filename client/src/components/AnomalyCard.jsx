@@ -28,7 +28,7 @@ const AnomalyCard = ({ anomaly, onAck }) => {
       borderRadius: 10,
       padding: "14px 16px",
       marginBottom: 10,
-      fontFamily: "'Inter', system-ui, sans-serif",
+      fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
       transition: "box-shadow 0.15s",
     }}
       onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.06)")}

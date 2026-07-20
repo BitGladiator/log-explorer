@@ -12,10 +12,10 @@ import { getAnomalies, acknowledgeAnomaly } from "../api/client.js";
 import AnomalyCard from "../components/AnomalyCard.jsx";
 
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
     background: #f4f6f9;
     color: #1e293b;
     -webkit-font-smoothing: antialiased;
@@ -148,7 +148,7 @@ const ProjectAlerts = () => {
         height: 52, display: "flex", alignItems: "center",
         padding: "0 24px", gap: 12, position: "sticky", top: 0, zIndex: 50,
         boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-        fontFamily: "'Inter', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
       }}>
 
         <div style={{
@@ -185,7 +185,7 @@ const ProjectAlerts = () => {
 
       <div style={{
         maxWidth: 720, margin: "0 auto", padding: "32px 24px",
-        fontFamily: "'Inter', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
       }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>
           Alert rules

@@ -409,7 +409,7 @@ const LogsInsightStrip = ({ projectId, onTimeRangeChange }) => {
         borderBottom: "1px solid #e2e8f0",
         padding: "14px 20px",
         flexShrink: 0,
-        fontFamily: "'Inter', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
       }}
     >
       <div

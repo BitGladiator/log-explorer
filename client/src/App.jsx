@@ -19,7 +19,7 @@ const WakingUpSplash = () => (
     gap: "20px",
     background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
     color: "#e2e8f0",
-    fontFamily: "'Inter', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
   }}>
 
     <Spinner size={50} color1="#fff" color2="#289E49" />
