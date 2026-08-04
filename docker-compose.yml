@@ -13,11 +13,12 @@ services:
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET}
       - CLIENT_URL=http://localhost:5173
+      - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
       - postgres
       - redis
     volumes:
-      - ./server:/app
+      - ./server:/app:cached
       - /app/node_modules
     restart: unless-stopped
     deploy:
@@ -36,7 +37,7 @@ services:
     depends_on:
       - server
     volumes:
-      - ./client:/app
+      - ./client:/app:cached
       - /app/node_modules
     restart: unless-stopped
     deploy:

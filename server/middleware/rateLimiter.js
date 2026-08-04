@@ -12,6 +12,9 @@ const makeStore = (prefix) =>
 
 const isDev = process.env.NODE_ENV === 'development';
 
+
+const normalizeIp = (ip = '') => ip.replace(/^::ffff:/, '');
+
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 300,
@@ -20,8 +23,9 @@ const globalLimiter = rateLimit({
   store: makeStore('rl:global:'),
   message: { error: 'Too many requests' },
   skip: (req) => isDev || req.path === '/api/health',
+  // Suppress the IPv6 key-generator validation warning; we normalise below.
+  validate: { xForwardedForHeader: false },
 });
-
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -29,17 +33,18 @@ const authLimiter = rateLimit({
   store: makeStore('rl:auth:'),
   message: { error: 'Too many auth attempts' },
   skip: () => isDev,
+  validate: { xForwardedForHeader: false },
 });
-
-
 
 const ingestionLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 1000,
   store: makeStore('rl:ingest:'),
-  keyGenerator: (req) => req.headers['x-api-key'] || req.ip,
+
+  keyGenerator: (req) => req.headers['x-api-key'] || normalizeIp(req.ip),
   message: { error: 'Ingestion rate limit exceeded' },
   skip: () => isDev,
+  validate: { xForwardedForHeader: false },
 });
 
 module.exports = { globalLimiter, authLimiter, ingestionLimiter };

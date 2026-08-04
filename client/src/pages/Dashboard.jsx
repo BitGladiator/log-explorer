@@ -123,7 +123,7 @@ const CSS = `
 
   .page-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     margin-bottom: 24px;
     gap: 16px;
@@ -306,12 +306,20 @@ const CSS = `
   .db-input:focus { border-color: #14b8a6; }
   .btn-primary {
     padding: 8px 18px;
+    height: auto;
+    width: auto;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     background: #0f766e; color: #fff;
     border: none; border-radius: 8px;
     font-size: 13px; font-weight: 600;
     cursor: pointer; font-family: inherit;
-    transition: background 0.15s;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
     white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(15, 118, 110, 0.2);
   }
   .btn-primary:hover { background: #0d9488; }
   .btn-ghost {
