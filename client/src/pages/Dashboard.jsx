@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth.jsx';
-import { logout, getProjects, createProject, getDashboardStats } from '../api/client.js';
-import Spinner from '../components/Spinner.jsx';
-
+import { useEffect, useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth.jsx";
+import {
+  logout,
+  getProjects,
+  createProject,
+  getDashboardStats,
+} from "../api/client.js";
+import Spinner from "../components/Spinner.jsx";
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
@@ -364,10 +368,273 @@ const CSS = `
     transform: translateX(-50%);
     border: 4px solid transparent; border-top-color: #0f172a;
   }
+
+  /* ── Resizable chart row ─────────────────────────────── */
+  .charts-resizable {
+    display: flex;
+    gap: 0;
+    margin-bottom: 22px;
+    align-items: stretch;
+  }
+  .chart-panel {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 20px 22px;
+    min-width: 180px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .chart-panel:hover { border-color: #cbd5e1; }
+
+  .chart-drag-handle {
+    width: 14px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: col-resize;
+    position: relative;
+    z-index: 10;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .chart-drag-handle-inner {
+    width: 4px;
+    height: 40px;
+    background: #e2e8f0;
+    border-radius: 99px;
+    transition: background 0.15s, height 0.15s, transform 0.15s;
+  }
+  .chart-drag-handle:hover .chart-drag-handle-inner,
+  .chart-drag-handle.dragging .chart-drag-handle-inner {
+    background: #14b8a6;
+    height: 56px;
+    transform: scaleX(1.5);
+  }
+
+  /* ── Collapsible section ─────────────────────────────── */
+  .collapsible-section {
+    margin-bottom: 22px;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .collapsible-section:hover { border-color: #cbd5e1; }
+  .collapsible-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    border-bottom: 1px solid transparent;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .collapsible-header:hover { background: #f8fafc; }
+  .collapsible-header.open { border-bottom-color: #f1f5f9; }
+  .collapsible-header-left { display: flex; align-items: center; gap: 10px; }
+  .collapsible-section-title { font-size: 13px; font-weight: 700; color: #0f172a; }
+  .collapsible-section-sub   { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+  .collapse-chevron {
+    width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+    color: #94a3b8;
+    transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), color 0.15s;
+    flex-shrink: 0;
+  }
+  .collapse-chevron.open { transform: rotate(180deg); color: #14b8a6; }
+  .collapsible-body {
+    overflow: hidden;
+    transition: height 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  .collapsible-body-inner {
+    padding: 16px 20px 18px;
+  }
+
+  /* ── Section resize handle ───────────────────────────── */
+  .section-resize-handle {
+    height: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: row-resize;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .section-resize-handle-bar {
+    width: 32px;
+    height: 3px;
+    background: #e2e8f0;
+    border-radius: 99px;
+    transition: background 0.15s, width 0.15s;
+  }
+  .section-resize-handle:hover .section-resize-handle-bar,
+  .section-resize-handle.dragging .section-resize-handle-bar {
+    background: #14b8a6;
+    width: 48px;
+  }
+
+  /* Table-wrap no longer needs its own margin since it's inside a collapsible body */
+  .collapsible-body-inner .table-wrap { border: none; border-radius: 10px; }
+  .collapsible-body-inner .create-bar { margin-bottom: 10px; }
 `;
 
+/* ── useChartResize hook ──────────────────────────────────────────── */
+const useChartResize = (initialLeftPct = 60) => {
+  const [leftPct, setLeftPct] = useState(initialLeftPct);
+  const containerRef = useRef(null);
+  const dragging = useRef(false);
 
-const Sparkline = ({ data, color = '#14b8a6', height = 36, width = 80 }) => {
+  const onPointerDown = useCallback((e) => {
+    e.preventDefault();
+    dragging.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.classList.add("dragging");
+  }, []);
+
+  const onPointerMove = useCallback((e) => {
+    if (!dragging.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const raw = ((e.clientX - rect.left) / rect.width) * 100;
+    setLeftPct(Math.min(Math.max(raw, 20), 80));
+  }, []);
+
+  const onPointerUp = useCallback((e) => {
+    dragging.current = false;
+    e.currentTarget.classList.remove("dragging");
+  }, []);
+
+  return { leftPct, containerRef, onPointerDown, onPointerMove, onPointerUp };
+};
+
+/* ── CollapsibleSection component ────────────────────────────────── */
+const CollapsibleSection = ({
+  title,
+  sub,
+  children,
+  defaultOpen = true,
+  minHeight = 80,
+  defaultHeight,
+}) => {
+  const [open, setOpen] = useState(defaultOpen);
+  const [height, setHeight] = useState(null);
+  const bodyRef = useRef(null);
+  const innerRef = useRef(null);
+  const dragging = useRef(false);
+  const startY = useRef(0);
+  const startH = useRef(0);
+
+  // Measure inner height once rendered
+  useEffect(() => {
+    if (innerRef.current && height === null) {
+      const h = innerRef.current.scrollHeight;
+      setHeight(defaultHeight || h);
+    }
+  }, [children]);
+
+  // Animate open/close
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    if (open) {
+      const target = height || (innerRef.current?.scrollHeight ?? 200);
+      bodyRef.current.style.height = `${target}px`;
+    } else {
+      bodyRef.current.style.height = "0px";
+    }
+  }, [open, height]);
+
+  const onResizePointerDown = useCallback(
+    (e) => {
+      if (!open) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dragging.current = true;
+      startY.current = e.clientY;
+      startH.current = bodyRef.current
+        ? bodyRef.current.clientHeight
+        : height || 200;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      e.currentTarget.classList.add("dragging");
+    },
+    [open, height],
+  );
+
+  const onResizePointerMove = useCallback(
+    (e) => {
+      if (!dragging.current || !bodyRef.current) return;
+      const delta = e.clientY - startY.current;
+      const newH = Math.max(minHeight, startH.current + delta);
+      setHeight(newH);
+      bodyRef.current.style.height = `${newH}px`;
+      bodyRef.current.style.transition = "none";
+    },
+    [minHeight],
+  );
+
+  const onResizePointerUp = useCallback((e) => {
+    dragging.current = false;
+    if (bodyRef.current) bodyRef.current.style.transition = "";
+    e.currentTarget.classList.remove("dragging");
+  }, []);
+
+  return (
+    <div className="collapsible-section">
+      <div
+        className={`collapsible-header${open ? " open" : ""}`}
+        onClick={() => setOpen((v) => !v)}
+        role="button"
+        aria-expanded={open}
+      >
+        <div className="collapsible-header-left">
+          <div>
+            <div className="collapsible-section-title">{title}</div>
+            {sub && <div className="collapsible-section-sub">{sub}</div>}
+          </div>
+        </div>
+        <span className={`collapse-chevron${open ? " open" : ""}`}>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
+      </div>
+      <div
+        ref={bodyRef}
+        className="collapsible-body"
+        style={{ height: open ? (height ? `${height}px` : "auto") : "0px" }}
+      >
+        <div ref={innerRef} className="collapsible-body-inner">
+          {children}
+        </div>
+      </div>
+      {open && (
+        <div
+          className="section-resize-handle"
+          onPointerDown={onResizePointerDown}
+          onPointerMove={onResizePointerMove}
+          onPointerUp={onResizePointerUp}
+        >
+          <div className="section-resize-handle-bar" />
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Sparkline = ({ data, color = "#14b8a6", height = 36, width = 80 }) => {
   if (!data || data.length < 2) return null;
   const max = Math.max(...data, 1);
   const pts = data.map((v, i) => {
@@ -375,23 +642,33 @@ const Sparkline = ({ data, color = '#14b8a6', height = 36, width = 80 }) => {
     const y = height - (v / max) * height * 0.82 - height * 0.06;
     return `${x},${y}`;
   });
-  const area = [`0,${height}`, ...pts, `${width},${height}`].join(' ');
-  const gId = `spk-${color.replace(/[^a-z0-9]/gi, '')}`;
+  const area = [`0,${height}`, ...pts, `${width},${height}`].join(" ");
+  const gId = `spk-${color.replace(/[^a-z0-9]/gi, "")}`;
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: 'block' }}>
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ display: "block" }}
+    >
       <defs>
         <linearGradient id={gId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor={color} stopOpacity="0.2" />
-          <stop offset="100%" stopColor={color} stopOpacity="0"   />
+          <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
       <polygon points={area} fill={`url(#${gId})`} />
-      <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline
+        points={pts.join(" ")}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 };
-
-
 
 const ActivityChart = ({ hourly }) => {
   const [hovered, setHovered] = useState(null);
@@ -401,12 +678,14 @@ const ActivityChart = ({ hourly }) => {
     const h = new Date(now);
     h.setHours(now.getHours() - 23 + i, 0, 0, 0);
     const key = h.toISOString().slice(0, 13);
-    const found = (hourly || []).find((x) => new Date(x.hour).toISOString().slice(0, 13) === key);
+    const found = (hourly || []).find(
+      (x) => new Date(x.hour).toISOString().slice(0, 13) === key,
+    );
     return {
       label: `${h.getHours()}:00`,
-      total:  parseInt(found?.total  || 0),
+      total: parseInt(found?.total || 0),
       errors: parseInt(found?.errors || 0) + parseInt(found?.fatals || 0),
-      warns:  parseInt(found?.warns  || 0),
+      warns: parseInt(found?.warns || 0),
     };
   });
 
@@ -414,67 +693,142 @@ const ActivityChart = ({ hourly }) => {
   const max = Math.max(...filled.map((f) => f.total), 1);
 
   if (!hasData) {
-    return <div className="chart-empty">No log activity in the last 24 hours</div>;
+    return (
+      <div className="chart-empty">No log activity in the last 24 hours</div>
+    );
   }
 
   return (
-    <div style={{ position: 'relative' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '96px' }}>
+    <div style={{ position: "relative" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: "3px",
+          height: "96px",
+        }}
+      >
         {filled.map((h, i) => {
           const totalPct = (h.total / max) * 100;
-          const errPct   = h.total > 0 ? (h.errors / h.total) * totalPct : 0;
-          const warnPct  = h.total > 0 ? (h.warns  / h.total) * totalPct : 0;
-          const infoPct  = totalPct - errPct - warnPct;
-          const isHov    = hovered === i;
+          const errPct = h.total > 0 ? (h.errors / h.total) * totalPct : 0;
+          const warnPct = h.total > 0 ? (h.warns / h.total) * totalPct : 0;
+          const infoPct = totalPct - errPct - warnPct;
+          const isHov = hovered === i;
 
           return (
             <div
               key={i}
-              style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', position: 'relative', cursor: 'default' }}
+              style={{
+                flex: 1,
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "flex-end",
+                position: "relative",
+                cursor: "default",
+              }}
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
             >
               {isHov && h.total > 0 && (
                 <div className="tooltip">
-                  {h.label} · {h.total.toLocaleString()} logs{h.errors > 0 ? ` · ${h.errors} err` : ''}
+                  {h.label} · {h.total.toLocaleString()} logs
+                  {h.errors > 0 ? ` · ${h.errors} err` : ""}
                 </div>
               )}
-              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                {errPct  > 0 && <div style={{ height: `${errPct}%`,  minHeight: 2, borderRadius: '2px 2px 0 0', background: isHov ? '#f43f5e' : '#fecdd3' }} />}
-                {warnPct > 0 && <div style={{ height: `${warnPct}%`, minHeight: 2, background: isHov ? '#f59e0b' : '#fde68a' }} />}
-                {infoPct > 0 && (
-                  <div style={{
-                    height: `${infoPct}%`, minHeight: 2,
-                    borderRadius: errPct === 0 && warnPct === 0 ? '2px 2px 0 0' : 0,
-                    background: isHov ? '#14b8a6' : '#99f6e4',
-                  }} />
+              <div
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1px",
+                }}
+              >
+                {errPct > 0 && (
+                  <div
+                    style={{
+                      height: `${errPct}%`,
+                      minHeight: 2,
+                      borderRadius: "2px 2px 0 0",
+                      background: isHov ? "#f43f5e" : "#fecdd3",
+                    }}
+                  />
                 )}
-                {h.total === 0 && <div style={{ height: 3, background: '#f1f5f9', borderRadius: 2 }} />}
+                {warnPct > 0 && (
+                  <div
+                    style={{
+                      height: `${warnPct}%`,
+                      minHeight: 2,
+                      background: isHov ? "#f59e0b" : "#fde68a",
+                    }}
+                  />
+                )}
+                {infoPct > 0 && (
+                  <div
+                    style={{
+                      height: `${infoPct}%`,
+                      minHeight: 2,
+                      borderRadius:
+                        errPct === 0 && warnPct === 0 ? "2px 2px 0 0" : 0,
+                      background: isHov ? "#14b8a6" : "#99f6e4",
+                    }}
+                  />
+                )}
+                {h.total === 0 && (
+                  <div
+                    style={{
+                      height: 3,
+                      background: "#f1f5f9",
+                      borderRadius: 2,
+                    }}
+                  />
+                )}
               </div>
             </div>
           );
         })}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: 8,
+        }}
+      >
         {[0, 6, 12, 18, 23].map((i) => (
-          <span key={i} style={{ fontSize: 10, color: '#94a3b8' }}>{filled[i]?.label}</span>
+          <span key={i} style={{ fontSize: 10, color: "#94a3b8" }}>
+            {filled[i]?.label}
+          </span>
         ))}
       </div>
     </div>
   );
 };
 
-
 const DonutChart = ({ data }) => {
   const [hovered, setHovered] = useState(null);
-  const COLORS = { debug: '#e2e8f0', info: '#14b8a6', warn: '#f59e0b', error: '#f43f5e', fatal: '#7f1d1d' };
+  const COLORS = {
+    debug: "#e2e8f0",
+    info: "#14b8a6",
+    warn: "#f59e0b",
+    error: "#f43f5e",
+    fatal: "#7f1d1d",
+  };
 
   if (!data || data.length === 0) {
-    return <div className="chart-empty" style={{ height: 120 }}>No log data yet</div>;
+    return (
+      <div className="chart-empty" style={{ height: 120 }}>
+        No log data yet
+      </div>
+    );
   }
 
-  const total  = data.reduce((s, d) => s + parseInt(d.count), 0);
-  const SIZE = 110, R = 40, IR = 24, CX = SIZE / 2, CY = SIZE / 2;
+  const total = data.reduce((s, d) => s + parseInt(d.count), 0);
+  const SIZE = 110,
+    R = 40,
+    IR = 24,
+    CX = SIZE / 2,
+    CY = SIZE / 2;
   let angle = -Math.PI / 2;
   const slices = data.map((d) => {
     const count = parseInt(d.count);
@@ -486,7 +840,10 @@ const DonutChart = ({ data }) => {
 
   const pt = (a, r) => ({ x: CX + r * Math.cos(a), y: CY + r * Math.sin(a) });
   const arc = (s, e, oR, iR) => {
-    const os = pt(s, oR), oe = pt(e, oR), is_ = pt(s, iR), ie = pt(e, iR);
+    const os = pt(s, oR),
+      oe = pt(e, oR),
+      is_ = pt(s, iR),
+      ie = pt(e, iR);
     const lg = e - s > Math.PI ? 1 : 0;
     return `M${os.x} ${os.y} A${oR} ${oR} 0 ${lg} 1 ${oe.x} ${oe.y} L${ie.x} ${ie.y} A${iR} ${iR} 0 ${lg} 0 ${is_.x} ${is_.y} Z`;
   };
@@ -494,36 +851,74 @@ const DonutChart = ({ data }) => {
   const hov = hovered !== null ? slices[hovered] : null;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ flexShrink: 0 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+      <svg
+        width={SIZE}
+        height={SIZE}
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        style={{ flexShrink: 0 }}
+      >
         {slices.map((s, i) => (
           <path
             key={s.level}
             d={arc(s.start, s.end, hovered === i ? R + 4 : R, IR)}
-            fill={COLORS[s.level] || '#e2e8f0'}
-            style={{ cursor: 'pointer' }}
+            fill={COLORS[s.level] || "#e2e8f0"}
+            style={{ cursor: "pointer" }}
             onMouseEnter={() => setHovered(i)}
             onMouseLeave={() => setHovered(null)}
           />
         ))}
-        <text x={CX} y={CY - 5} textAnchor="middle" fontSize="12" fontWeight="700" fill="#0f172a">
+        <text
+          x={CX}
+          y={CY - 5}
+          textAnchor="middle"
+          fontSize="12"
+          fontWeight="700"
+          fill="#0f172a"
+        >
           {hov ? hov.count.toLocaleString() : total.toLocaleString()}
         </text>
         <text x={CX} y={CY + 9} textAnchor="middle" fontSize="9" fill="#94a3b8">
-          {hov ? hov.level : 'total'}
+          {hov ? hov.level : "total"}
         </text>
       </svg>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {slices.map((s, i) => (
           <div
             key={s.level}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', opacity: hovered !== null && hovered !== i ? 0.3 : 1, transition: 'opacity 0.15s' }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              cursor: "pointer",
+              opacity: hovered !== null && hovered !== i ? 0.3 : 1,
+              transition: "opacity 0.15s",
+            }}
             onMouseEnter={() => setHovered(i)}
             onMouseLeave={() => setHovered(null)}
           >
-            <div style={{ width: 9, height: 9, borderRadius: 3, background: COLORS[s.level], flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: '#475569', textTransform: 'capitalize', flex: 1 }}>{s.level}</span>
-            <span style={{ fontSize: 11, color: '#94a3b8' }}>{((s.count / total) * 100).toFixed(0)}%</span>
+            <div
+              style={{
+                width: 9,
+                height: 9,
+                borderRadius: 3,
+                background: COLORS[s.level],
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontSize: 12,
+                color: "#475569",
+                textTransform: "capitalize",
+                flex: 1,
+              }}
+            >
+              {s.level}
+            </span>
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>
+              {((s.count / total) * 100).toFixed(0)}%
+            </span>
           </div>
         ))}
       </div>
@@ -531,16 +926,26 @@ const DonutChart = ({ data }) => {
   );
 };
 
-
-const StatCard = ({ label, value, sub, color, bgColor, icon, sparkData, danger }) => (
-  <div className={`stat-card${danger ? ' danger' : ''}`}>
+const StatCard = ({
+  label,
+  value,
+  sub,
+  color,
+  bgColor,
+  icon,
+  sparkData,
+  danger,
+}) => (
+  <div className={`stat-card${danger ? " danger" : ""}`}>
     <div className="stat-row">
-      <div className="stat-icon" style={{ background: bgColor }}>{icon}</div>
+      <div className="stat-icon" style={{ background: bgColor }}>
+        {icon}
+      </div>
       <Sparkline data={sparkData} color={color} />
     </div>
     <div>
       <div className="stat-label">{label}</div>
-      <div className={`stat-value${danger ? ' danger' : ''}`}>{value}</div>
+      <div className={`stat-value${danger ? " danger" : ""}`}>{value}</div>
     </div>
     <div className="stat-footer">
       <span className="stat-sub">{sub}</span>
@@ -548,112 +953,251 @@ const StatCard = ({ label, value, sub, color, bgColor, icon, sparkData, danger }
   </div>
 );
 
-
-const IcoActivity = ({ color = '#14b8a6' }) => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+const IcoActivity = ({ color = "#14b8a6" }) => (
+  <svg
+    width="17"
+    height="17"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
   </svg>
 );
-const IcoAlertCircle = ({ color = '#be123c' }) => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+const IcoAlertCircle = ({ color = "#be123c" }) => (
+  <svg
+    width="17"
+    height="17"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <circle cx="12" cy="12" r="10" />
     <line x1="12" y1="8" x2="12" y2="12" />
     <line x1="12" y1="16" x2="12.01" y2="16" />
   </svg>
 );
-const IcoDatabase = ({ color = '#0891b2' }) => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+const IcoDatabase = ({ color = "#0891b2" }) => (
+  <svg
+    width="17"
+    height="17"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <ellipse cx="12" cy="5" rx="9" ry="3" />
     <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
     <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
   </svg>
 );
-const IcoFolder = ({ color = '#d97706' }) => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+const IcoFolder = ({ color = "#d97706" }) => (
+  <svg
+    width="17"
+    height="17"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
   </svg>
 );
 const IcoLogout = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
     <polyline points="16 17 21 12 16 7" />
     <line x1="21" y1="12" x2="9" y2="12" />
   </svg>
 );
 const IcoWave = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#fff"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
   </svg>
 );
 const IcoWarn = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
     <line x1="12" y1="9" x2="12" y2="13" />
     <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 );
 const IcoInfo = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <circle cx="12" cy="12" r="10" />
     <line x1="12" y1="8" x2="12" y2="12" />
     <line x1="12" y1="16" x2="12.01" y2="16" />
   </svg>
 );
 
+const ChartsRow = ({ loading, stats }) => {
+  const { leftPct, containerRef, onPointerDown, onPointerMove, onPointerUp } = useChartResize(62);
+  return (
+    <CollapsibleSection title="Activity & Distribution" sub="Last 24 hours · drag the divider to resize panels" defaultOpen={true}>
+      <div ref={containerRef} className="charts-resizable" style={{ marginBottom: 0 }}>
+        {/* Activity panel */}
+        <div className="chart-panel" style={{ flex: `${leftPct} 1 0%` }}>
+          <div className="card-header" style={{ marginBottom: 18 }}>
+            <div>
+              <div className="card-title">Activity — Last 24 Hours</div>
+              <div className="card-sub">Hourly breakdown by log level</div>
+            </div>
+            <div className="legend">
+              {[
+                { label: 'Info',  color: '#99f6e4' },
+                { label: 'Warn',  color: '#fde68a' },
+                { label: 'Error', color: '#fecdd3' },
+              ].map((l) => (
+                <span key={l.label} className="legend-item">
+                  <span className="legend-dot" style={{ background: l.color }} />
+                  {l.label}
+                </span>
+              ))}
+            </div>
+          </div>
+          {loading
+            ? <div className="chart-empty" style={{ flexDirection: 'column', gap: 12 }}><Spinner size={36} color1="#e2e8f0" color2="#14b8a6" /><span>Loading activity…</span></div>
+            : <ActivityChart hourly={stats?.hourly} />
+          }
+        </div>
+
+        {/* Drag handle */}
+        <div
+          className="chart-drag-handle"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          title="Drag to resize panels"
+        >
+          <div className="chart-drag-handle-inner" />
+        </div>
+
+        {/* Donut panel */}
+        <div className="chart-panel" style={{ flex: `${100 - leftPct} 1 0%` }}>
+          <div className="card-header" style={{ marginBottom: 18 }}>
+            <div>
+              <div className="card-title">Level Distribution</div>
+              <div className="card-sub">Last 7 days</div>
+            </div>
+          </div>
+          {loading
+            ? <div className="chart-empty" style={{ height: 120, flexDirection: 'column', gap: 12 }}><Spinner size={30} color1="#e2e8f0" color2="#14b8a6" /><span>Loading…</span></div>
+            : <DonutChart data={stats?.levelDistribution} />
+          }
+        </div>
+      </div>
+    </CollapsibleSection>
+  );
+};
+
 
 const Dashboard = () => {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
 
-  const [projects,  setProjects]  = useState([]);
-  const [stats,     setStats]     = useState(null);
-  const [creating,  setCreating]  = useState(false);
-  const [newName,   setNewName]   = useState('');
-  const [loading,   setLoading]   = useState(true);
-  const [statsErr,  setStatsErr]  = useState(false);
-  const [createErr, setCreateErr] = useState('');
-
+  const [projects, setProjects] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [statsErr, setStatsErr] = useState(false);
+  const [createErr, setCreateErr] = useState("");
 
   useEffect(() => {
     Promise.all([getProjects(), getDashboardStats()])
-      .then(([p, s]) => { setProjects(p); setStats(s); })
-      .catch((err) => { console.error(err); setStatsErr(true); })
+      .then(([p, s]) => {
+        setProjects(p);
+        setStats(s);
+      })
+      .catch((err) => {
+        console.error(err);
+        setStatsErr(true);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-
   const handleLogout = async () => {
-    try { await logout(); } catch (_) {}
+    try {
+      await logout();
+    } catch (_) {}
     setUser(null);
-    navigate('/login');
+    navigate("/login");
   };
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    setCreateErr('');
+    setCreateErr("");
     try {
       const project = await createProject({ name: newName.trim() });
       setProjects((prev) => [project, ...prev]);
-      setNewName('');
+      setNewName("");
       setCreating(false);
     } catch (err) {
-      setCreateErr(err?.error || 'Failed to create project. Please try again.');
+      setCreateErr(err?.error || "Failed to create project. Please try again.");
     }
   };
 
+  const sparkTotal = stats?.hourly?.map((h) => parseInt(h.total)) || [];
+  const sparkErrors =
+    stats?.hourly?.map((h) => parseInt(h.errors) + parseInt(h.fatals)) || [];
+  const fmt = (n) => parseInt(n || 0).toLocaleString();
+  const avatarChar = (user?.email || user?.name || "U")[0].toUpperCase();
 
-  const sparkTotal  = stats?.hourly?.map((h) => parseInt(h.total))                           || [];
-  const sparkErrors = stats?.hourly?.map((h) => parseInt(h.errors) + parseInt(h.fatals))     || [];
-  const fmt         = (n) => parseInt(n || 0).toLocaleString();
-  const avatarChar  = (user?.email || user?.name || 'U')[0].toUpperCase();
-
-  const topProjects = stats?.topProjects?.filter((p) => parseInt(p.total_today) > 0) || [];
-  const topMax      = topProjects.length ? Math.max(...topProjects.map((p) => parseInt(p.total_today)), 1) : 1;
+  const topProjects =
+    stats?.topProjects?.filter((p) => parseInt(p.total_today) > 0) || [];
+  const topMax = topProjects.length
+    ? Math.max(...topProjects.map((p) => parseInt(p.total_today)), 1)
+    : 1;
 
   return (
     <>
       <style>{CSS}</style>
-
 
       <nav className="nav">
         <div className="nav-brand">
@@ -665,7 +1209,7 @@ const Dashboard = () => {
           <button className="nav-link active">Dashboard</button>
         </div>
         <div className="nav-right">
-          <span className="nav-user">{user?.email || user?.name || ''}</span>
+          <span className="nav-user">{user?.email || user?.name || ""}</span>
           <div className="nav-avatar">{avatarChar}</div>
           <button className="nav-logout" onClick={handleLogout}>
             <IcoLogout /> Logout
@@ -673,18 +1217,26 @@ const Dashboard = () => {
         </div>
       </nav>
 
-
       <div className="page">
-
-
         <div className="page-header">
           <div>
             <div className="page-title">Overview</div>
             <div className="page-sub">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
             </div>
           </div>
-          <button className="btn-primary" onClick={() => { setCreating(true); setCreateErr(''); }}>
+          <button
+            className="btn-primary"
+            onClick={() => {
+              setCreating(true);
+              setCreateErr("");
+            }}
+          >
             + New Project
           </button>
         </div>
@@ -694,32 +1246,34 @@ const Dashboard = () => {
             {stats.openAlerts > 0 && (
               <div className="alert-pill err">
                 <IcoInfo />
-                {stats.openAlerts} unacknowledged alert{stats.openAlerts !== 1 ? 's' : ''} in the last 24h
+                {stats.openAlerts} unacknowledged alert
+                {stats.openAlerts !== 1 ? "s" : ""} in the last 24h
               </div>
             )}
             {stats.openAnomalies > 0 && (
               <div className="alert-pill warn">
                 <IcoWarn />
-                {stats.openAnomalies} anomal{stats.openAnomalies !== 1 ? 'ies' : 'y'} detected in the last 24h
+                {stats.openAnomalies} anomal
+                {stats.openAnomalies !== 1 ? "ies" : "y"} detected in the last
+                24h
               </div>
             )}
           </div>
         )}
 
-
         {statsErr && (
           <div className="alert-strip">
             <div className="alert-pill warn">
-              <IcoWarn /> Could not load dashboard stats. Check your server connection.
+              <IcoWarn /> Could not load dashboard stats. Check your server
+              connection.
             </div>
           </div>
         )}
 
-
         <div className="stats-grid">
           <StatCard
             label="Logs Today"
-            value={loading ? '—' : fmt(stats?.totals?.logs_24h)}
+            value={loading ? "—" : fmt(stats?.totals?.logs_24h)}
             sub="Last 24 hours"
             color="#14b8a6"
             bgColor="#f0fdfa"
@@ -728,7 +1282,7 @@ const Dashboard = () => {
           />
           <StatCard
             label="Errors Today"
-            value={loading ? '—' : fmt(stats?.totals?.errors_24h)}
+            value={loading ? "—" : fmt(stats?.totals?.errors_24h)}
             sub="Error + Fatal"
             color="#f43f5e"
             bgColor="#fff1f2"
@@ -738,7 +1292,7 @@ const Dashboard = () => {
           />
           <StatCard
             label="Total Logs"
-            value={loading ? '—' : fmt(stats?.totals?.total_logs)}
+            value={loading ? "—" : fmt(stats?.totals?.total_logs)}
             sub="All time"
             color="#0891b2"
             bgColor="#ecfeff"
@@ -746,13 +1300,17 @@ const Dashboard = () => {
           />
           <StatCard
             label="Projects"
-            value={loading ? '—' : fmt(stats?.totals?.total_projects ?? projects.length)}
+            value={
+              loading
+                ? "—"
+                : fmt(stats?.totals?.total_projects ?? projects.length)
+            }
             sub={
               !loading
                 ? projects.filter((p) => p.storage_warning).length > 0
                   ? `${projects.filter((p) => p.storage_warning).length} with storage warning`
-                  : 'All healthy'
-                : 'Loading…'
+                  : "All healthy"
+                : "Loading…"
             }
             color="#d97706"
             bgColor="#fffbeb"
@@ -760,97 +1318,63 @@ const Dashboard = () => {
           />
         </div>
 
-
-        <div className="charts-row">
-
-          <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">Activity — Last 24 Hours</div>
-                <div className="card-sub">Hourly breakdown by log level</div>
-              </div>
-              <div className="legend">
-                {[
-                  { label: 'Info',  color: '#99f6e4' },
-                  { label: 'Warn',  color: '#fde68a' },
-                  { label: 'Error', color: '#fecdd3' },
-                ].map((l) => (
-                  <span key={l.label} className="legend-item">
-                    <span className="legend-dot" style={{ background: l.color }} />
-                    {l.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-            {loading
-              ? <div className="chart-empty" style={{ flexDirection: 'column', gap: 12 }}><Spinner size={36} color1="#e2e8f0" color2="#14b8a6" /><span>Loading activity…</span></div>
-              : <ActivityChart hourly={stats?.hourly} />
-            }
-          </div>
-
-          {/* Donut chart */}
-          <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">Level Distribution</div>
-                <div className="card-sub">Last 7 days</div>
-              </div>
-            </div>
-            {loading
-              ? <div className="chart-empty" style={{ height: 120, flexDirection: 'column', gap: 12 }}><Spinner size={30} color1="#e2e8f0" color2="#14b8a6" /><span>Loading…</span></div>
-              : <DonutChart data={stats?.levelDistribution} />
-            }
-          </div>
-        </div>
-
+        <ChartsRow loading={loading} stats={stats} />
 
         {!loading && topProjects.length > 0 && (
-          <div className="card" style={{ marginBottom: 22 }}>
-            <div className="card-header">
-              <div>
-                <div className="card-title">Most Active Projects Today</div>
-                <div className="card-sub">Ranked by log volume</div>
-              </div>
-            </div>
+          <CollapsibleSection
+            title="Most Active Projects Today"
+            sub="Ranked by log volume · drag the bottom edge to resize"
+          >
             {topProjects.map((p) => {
-              const pct    = (parseInt(p.total_today) / topMax) * 100;
-              const errPct = parseInt(p.total_today) > 0
-                ? ((parseInt(p.errors_today) + parseInt(p.fatals_today)) / parseInt(p.total_today)) * 100
-                : 0;
+              const pct = (parseInt(p.total_today) / topMax) * 100;
+              const errPct =
+                parseInt(p.total_today) > 0
+                  ? ((parseInt(p.errors_today) + parseInt(p.fatals_today)) /
+                      parseInt(p.total_today)) *
+                    100
+                  : 0;
               return (
-                <div key={p.id} className="proj-bar" onClick={() => navigate(`/projects/${p.id}`)}>
+                <div
+                  key={p.id}
+                  className="proj-bar"
+                  onClick={() => navigate(`/projects/${p.id}`)}
+                >
                   <div className="proj-bar-meta">
                     <span className="proj-bar-name">{p.name}</span>
                     <span className="proj-bar-count">
                       {parseInt(p.total_today).toLocaleString()} logs
-                      {(parseInt(p.errors_today) + parseInt(p.fatals_today)) > 0 && (
-                        <span style={{ color: '#be123c', marginLeft: 8 }}>
-                          {parseInt(p.errors_today) + parseInt(p.fatals_today)} errors
+                      {parseInt(p.errors_today) + parseInt(p.fatals_today) >
+                        0 && (
+                        <span style={{ color: "#be123c", marginLeft: 8 }}>
+                          {parseInt(p.errors_today) + parseInt(p.fatals_today)}{" "}
+                          errors
                         </span>
                       )}
                     </span>
                   </div>
                   <div className="proj-bar-track">
-                    <div className="proj-bar-fill" style={{ width: `${pct}%`, background: '#99f6e4' }}>
-                      {errPct > 0 && <div className="proj-bar-err" style={{ width: `${errPct}%`, background: '#f43f5e' }} />}
+                    <div
+                      className="proj-bar-fill"
+                      style={{ width: `${pct}%`, background: "#99f6e4" }}
+                    >
+                      {errPct > 0 && (
+                        <div
+                          className="proj-bar-err"
+                          style={{ width: `${errPct}%`, background: "#f43f5e" }}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
               );
             })}
-          </div>
+          </CollapsibleSection>
         )}
 
-
-        <div>
-          <div className="section-header">
-            <div>
-              <div className="section-title">Your Projects</div>
-              <div className="section-sub">Click a project to view its logs</div>
-            </div>
-          </div>
-
-
+        <CollapsibleSection
+          title="Your Projects"
+          sub="Click a project to view its logs · drag the bottom edge to resize"
+        >
           {creating && (
             <div className="create-bar">
               <input
@@ -858,18 +1382,40 @@ const Dashboard = () => {
                 type="text"
                 placeholder="Project name…"
                 value={newName}
-                onChange={(e) => { setNewName(e.target.value); setCreateErr(''); }}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                onChange={(e) => {
+                  setNewName(e.target.value);
+                  setCreateErr("");
+                }}
+                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                 className="db-input"
               />
-              <button className="btn-primary"  onClick={handleCreate}>Create</button>
-              <button className="btn-ghost"    onClick={() => { setCreating(false); setCreateErr(''); setNewName(''); }}>Cancel</button>
+              <button className="btn-primary" onClick={handleCreate}>
+                Create
+              </button>
+              <button
+                className="btn-ghost"
+                onClick={() => {
+                  setCreating(false);
+                  setCreateErr("");
+                  setNewName("");
+                }}
+              >
+                Cancel
+              </button>
             </div>
           )}
           {createErr && (
-            <div style={{ marginBottom: 10, fontSize: 12, color: '#be123c', padding: '0 4px' }}>{createErr}</div>
+            <div
+              style={{
+                marginBottom: 10,
+                fontSize: 12,
+                color: "#be123c",
+                padding: "0 4px",
+              }}
+            >
+              {createErr}
+            </div>
           )}
-
 
           {loading ? (
             <div className="db-loading">
@@ -880,7 +1426,13 @@ const Dashboard = () => {
             <div className="table-wrap">
               <div className="db-empty">
                 <p>No projects yet. Create one to start ingesting logs.</p>
-                <button className="btn-primary" onClick={() => { setCreating(true); setCreateErr(''); }}>
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    setCreating(true);
+                    setCreateErr("");
+                  }}
+                >
                   Create your first project
                 </button>
               </div>
@@ -893,26 +1445,43 @@ const Dashboard = () => {
                     <th>Project</th>
                     <th>Logs today</th>
                     <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Open</th>
+                    <th style={{ textAlign: "right" }}>Open</th>
                   </tr>
                 </thead>
                 <tbody>
                   {projects.map((proj) => {
                     const logsToday = parseInt(proj.logs_today || 0);
-                    const hasWarn   = proj.storage_warning;
+                    const hasWarn = proj.storage_warning;
                     return (
-                      <tr key={proj.id} onClick={() => navigate(`/projects/${proj.id}`)}>
-                        <td><span className="tbl-name">{proj.name}</span></td>
-                        <td className="tbl-muted">{logsToday.toLocaleString()}</td>
+                      <tr
+                        key={proj.id}
+                        onClick={() => navigate(`/projects/${proj.id}`)}
+                      >
+                        <td>
+                          <span className="tbl-name">{proj.name}</span>
+                        </td>
+                        <td className="tbl-muted">
+                          {logsToday.toLocaleString()}
+                        </td>
                         <td>
                           {hasWarn ? (
-                            <span className="badge badge-warn"><span className="badge-dot" /> Storage warning</span>
+                            <span className="badge badge-warn">
+                              <span className="badge-dot" /> Storage warning
+                            </span>
                           ) : (
-                            <span className="badge badge-ok"><span className="badge-dot" /> Healthy</span>
+                            <span className="badge badge-ok">
+                              <span className="badge-dot" /> Healthy
+                            </span>
                           )}
                         </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: '#0d9488' }}>
+                        <td style={{ textAlign: "right" }}>
+                          <span
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "#0d9488",
+                            }}
+                          >
                             View logs →
                           </span>
                         </td>
@@ -923,8 +1492,7 @@ const Dashboard = () => {
               </table>
             </div>
           )}
-        </div>
-
+        </CollapsibleSection>
       </div>
     </>
   );
