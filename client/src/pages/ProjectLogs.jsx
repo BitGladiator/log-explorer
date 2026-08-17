@@ -15,6 +15,7 @@ import ClusterCard from "../components/ClusterCard.jsx";
 import LogsInsightStrip from "../components/LogsInsightStrip.jsx";
 import Spinner from "../components/Spinner.jsx";
 
+
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -33,7 +34,6 @@ const CSS = `
     background: #f4f6f9;
   }
 
-  /* ── Nav ── */
   .pl-nav {
     height: 52px;
     flex-shrink: 0;
@@ -110,7 +110,6 @@ const CSS = `
   .pl-live-btn.paused:hover { color: #334155; border-color: #cbd5e1; }
   .pl-live-dot { width: 6px; height: 6px; border-radius: 50%; }
 
-  /* ── Tabs ── */
   .pl-tabs {
     display: flex;
     gap: 2px;
@@ -135,51 +134,14 @@ const CSS = `
   .pl-tab.active { color: #0d9488; border-bottom-color: #14b8a6; }
   .pl-tab:hover:not(.active) { color: #475569; }
 
-  /* ── Insight panel wrapper ── */
-  .pl-insight-panel {
+  /* Insight strip wrapper — height controlled by drag */
+  .pl-insight-wrap {
     flex-shrink: 0;
     background: #fff;
-    position: relative;
-  }
-
-  /* Collapse toggle sitting inside the insight strip area */
-  .pl-section-toggle {
-    position: absolute;
-    top: 8px;
-    right: 14px;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    font-weight: 600;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 3px 8px;
-    cursor: pointer;
-    font-family: inherit;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .pl-section-toggle:hover { color: #0d9488; border-color: #99f6e4; background: #f0fdfa; }
-  .pl-section-toggle svg {
-    transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
-    flex-shrink: 0;
-  }
-  .pl-section-toggle.collapsed svg { transform: rotate(180deg); }
-
-  /* Animated body for insight */
-  .pl-insight-body {
     overflow: hidden;
-    transition: height 0.3s cubic-bezier(0.4,0,0.2,1);
   }
 
-  /* ── Resize handle (row-resize, at bottom of a panel) ── */
+  /* Drag handle between insight strip and the rest */
   .pl-resize-handle {
     height: 8px;
     flex-shrink: 0;
@@ -208,27 +170,6 @@ const CSS = `
     width: 48px;
   }
 
-  /* ── NaturalQuery wrapper ── */
-  .pl-nqb-outer {
-    flex-shrink: 0;
-    background: #fff;
-    overflow: hidden;
-    transition: height 0.28s cubic-bezier(0.4,0,0.2,1);
-    position: relative;
-  }
-  .pl-nqb-inner {
-    padding: 10px 20px;
-    border-bottom: 1px solid #e2e8f0;
-  }
-
-  /* ── Filter bar ── */
-  .pl-filter-outer {
-    flex-shrink: 0;
-    background: #fff;
-    overflow: hidden;
-    transition: height 0.28s cubic-bezier(0.4,0,0.2,1);
-    position: relative;
-  }
   .pl-filter-bar {
     display: flex;
     align-items: center;
@@ -238,7 +179,6 @@ const CSS = `
     border-bottom: 1px solid #e2e8f0;
     flex-shrink: 0;
     flex-wrap: wrap;
-    position: relative;
   }
   .pl-search {
     flex: 1;
@@ -289,7 +229,6 @@ const CSS = `
   }
   .pl-service-select:focus { border-color: #14b8a6; }
 
-  /* ── Log list ── */
   .pl-log-list {
     flex: 1;
     overflow-y: auto;
@@ -301,7 +240,6 @@ const CSS = `
   .pl-log-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
   .pl-log-list::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-  /* ── Status bar ── */
   .pl-statusbar {
     height: 30px;
     flex-shrink: 0;
@@ -316,7 +254,6 @@ const CSS = `
   }
   .pl-statusbar span { display: flex; align-items: center; gap: 4px; }
 
-  /* ── Clusters ── */
   .pl-clusters {
     flex: 1;
     overflow-y: auto;
@@ -356,184 +293,83 @@ const LEVELS = ["debug", "info", "warn", "error", "fatal"];
 
 const LEVEL_PILL_ACTIVE = {
   debug: { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1" },
-  info: { bg: "#eff6ff", color: "#2563eb", border: "#bfdbfe" },
-  warn: { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+  info:  { bg: "#eff6ff", color: "#2563eb", border: "#bfdbfe" },
+  warn:  { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
   error: { bg: "#fff1f2", color: "#be123c", border: "#fecdd3" },
   fatal: { bg: "#fff1f2", color: "#9f1239", border: "#fda4af" },
 };
 
-const INSIGHT_MIN_H = 60;
+const INSIGHT_MIN_H   = 60;
 const INSIGHT_DEFAULT = 200;
 
-const Chevron = () => (
-  <svg
-    width="10"
-    height="10"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polyline points="18 15 12 9 6 15" />
-  </svg>
-);
-
-const CollapseToggle = ({ open, onToggle, label }) => (
-  <button
-    className={`pl-section-toggle${open ? "" : " collapsed"}`}
-    onClick={(e) => {
-      e.stopPropagation();
-      onToggle();
-    }}
-    title={open ? `Collapse ${label}` : `Expand ${label}`}
-  >
-    <Chevron />
-    {open ? "Collapse" : "Expand"}
-  </button>
-);
-
-/* ── Collapsible + resizable insight strip ─────────────── */
+/* ── Resizable insight strip ─────────────────────────────── */
 const InsightPanel = ({ projectId, onTimeRangeChange }) => {
-  const [open, setOpen] = useState(true);
   const [panelH, setPanelH] = useState(INSIGHT_DEFAULT);
-  const bodyRef = useRef(null);
-  const dragging = useRef(false);
-  const startY = useRef(0);
-  const startH = useRef(0);
+  const dragging  = useRef(false);
+  const startY    = useRef(0);
+  const startH    = useRef(0);
+  const wrapRef   = useRef(null);
 
-  /* sync height to open state */
-  useEffect(() => {
-    if (!bodyRef.current) return;
-    bodyRef.current.style.height = open ? `${panelH}px` : "0px";
-  }, [open, panelH]);
-
-  const onPointerDown = useCallback(
-    (e) => {
-      if (!open) return;
-      e.preventDefault();
-      dragging.current = true;
-      startY.current = e.clientY;
-      startH.current = panelH;
-      e.currentTarget.setPointerCapture(e.pointerId);
-      e.currentTarget.classList.add("dragging");
-    },
-    [open, panelH],
-  );
+  const onPointerDown = useCallback((e) => {
+    e.preventDefault();
+    dragging.current = true;
+    startY.current   = e.clientY;
+    startH.current   = panelH;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.classList.add('dragging');
+  }, [panelH]);
 
   const onPointerMove = useCallback((e) => {
     if (!dragging.current) return;
-    const newH = Math.max(
-      INSIGHT_MIN_H,
-      startH.current + (e.clientY - startY.current),
-    );
+    const newH = Math.max(INSIGHT_MIN_H, startH.current + (e.clientY - startY.current));
     setPanelH(newH);
-    if (bodyRef.current) {
-      bodyRef.current.style.height = `${newH}px`;
-      bodyRef.current.style.transition = "none";
-    }
+    if (wrapRef.current) wrapRef.current.style.height = `${newH}px`;
   }, []);
 
   const onPointerUp = useCallback((e) => {
     dragging.current = false;
-    if (bodyRef.current) bodyRef.current.style.transition = "";
-    e.currentTarget.classList.remove("dragging");
+    e.currentTarget.classList.remove('dragging');
   }, []);
 
   return (
-    <div className="pl-insight-panel">
-      <CollapseToggle
-        open={open}
-        onToggle={() => setOpen((v) => !v)}
-        label="insights"
-      />
-
-      <div
-        ref={bodyRef}
-        className="pl-insight-body"
-        style={{ height: open ? `${panelH}px` : "0px", overflowY: "auto" }}
-      >
-        <LogsInsightStrip
-          projectId={projectId}
-          onTimeRangeChange={onTimeRangeChange}
-        />
+    <>
+      <div ref={wrapRef} className="pl-insight-wrap" style={{ height: panelH }}>
+        <LogsInsightStrip projectId={projectId} onTimeRangeChange={onTimeRangeChange} />
       </div>
-
-      {open && (
-        <div
-          className="pl-resize-handle"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          title="Drag to resize"
-        >
-          <div className="pl-resize-handle-bar" />
-        </div>
-      )}
-    </div>
+      <div
+        className="pl-resize-handle"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        title="Drag to resize"
+      >
+        <div className="pl-resize-handle-bar" />
+      </div>
+    </>
   );
 };
 
-/* ── Collapsible wrapper for any fixed-height section ───── */
-const CollapsiblePanel = ({
-  open,
-  innerRef,
-  children,
-  borderBottom = true,
-}) => {
-  const wrapRef = useRef(null);
-
-  useEffect(() => {
-    if (!wrapRef.current || !innerRef?.current) return;
-    if (open) {
-      wrapRef.current.style.height = `${innerRef.current.scrollHeight}px`;
-    } else {
-      wrapRef.current.style.height = "0px";
-    }
-  }, [open, innerRef]);
-
-  return (
-    <div
-      ref={wrapRef}
-      style={{
-        overflow: "hidden",
-        flexShrink: 0,
-        transition: "height 0.28s cubic-bezier(0.4,0,0.2,1)",
-        borderBottom: open && borderBottom ? "1px solid #e2e8f0" : "none",
-      }}
-    >
-      {children}
-    </div>
-  );
-};
-
+/* ── Main component ──────────────────────────────────────── */
 const ProjectLogs = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
 
-  const [project, setProject] = useState(null);
-  const [historicalLogs, setHistoricalLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isLive, setIsLive] = useState(true);
-  const [selectedLog, setSelectedLog] = useState(null);
-  const [activeTab, setActiveTab] = useState("logs");
+  const [project,         setProject]        = useState(null);
+  const [historicalLogs,  setHistoricalLogs]  = useState([]);
+  const [loading,         setLoading]         = useState(true);
+  const [isLive,          setIsLive]          = useState(true);
+  const [selectedLog,     setSelectedLog]     = useState(null);
+  const [activeTab,       setActiveTab]       = useState("logs");
 
-  const [levelFilter, setLevelFilter] = useState(new Set());
-  const [serviceFilter, setServiceFilter] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [levelFilter,     setLevelFilter]     = useState(new Set());
+  const [serviceFilter,   setServiceFilter]   = useState("");
+  const [searchQuery,     setSearchQuery]     = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [queryLoading, setQueryLoading] = useState(false);
-  const [timeRange, setTimeRange] = useState(null);
+  const [queryLoading,    setQueryLoading]    = useState(false);
+  const [timeRange,       setTimeRange]       = useState(null);
 
-  const [clusters, setClusters] = useState([]);
+  const [clusters,        setClusters]        = useState([]);
   const [clustersLoading, setClustersLoading] = useState(false);
-
-  const [nqbOpen, setNqbOpen] = useState(true);
-  const [filterOpen, setFilterOpen] = useState(true);
-
-  const nqbInnerRef = useRef(null);
-  const filterInnerRef = useRef(null);
 
   const { streamedLogs, clearStream } = useLogStream(projectId, isLive);
 
@@ -544,20 +380,18 @@ const ProjectLogs = () => {
 
   useEffect(() => {
     getProjects()
-      .then((ps) =>
-        setProject(ps.find((p) => String(p.id) === String(projectId))),
-      )
+      .then((ps) => setProject(ps.find((p) => String(p.id) === String(projectId))))
       .catch(console.error);
   }, [projectId]);
 
   const loadLogs = useCallback(() => {
     setLoading(true);
     const params = { limit: 200 };
-    if (levelFilter.size > 0) params.level = [...levelFilter][0];
-    if (serviceFilter) params.service = serviceFilter;
-    if (debouncedSearch) params.search = debouncedSearch;
-    if (timeRange?.from) params.from = timeRange.from;
-    if (timeRange?.to) params.to = timeRange.to;
+    if (levelFilter.size > 0) params.level   = [...levelFilter][0];
+    if (serviceFilter)        params.service  = serviceFilter;
+    if (debouncedSearch)      params.search   = debouncedSearch;
+    if (timeRange?.from)      params.from     = timeRange.from;
+    if (timeRange?.to)        params.to       = timeRange.to;
     getLogs(projectId, params)
       .then((res) => setHistoricalLogs(res.logs))
       .catch(console.error)
@@ -569,9 +403,7 @@ const ProjectLogs = () => {
     setIsLive(false);
   }, []);
 
-  useEffect(() => {
-    loadLogs();
-  }, [loadLogs]);
+  useEffect(() => { loadLogs(); }, [loadLogs]);
 
   const loadClusters = useCallback(() => {
     setClustersLoading(true);
@@ -613,52 +445,26 @@ const ProjectLogs = () => {
 
   const filteredStream = streamedLogs.filter((log) => {
     if (levelFilter.size > 0 && !levelFilter.has(log.level)) return false;
-    if (serviceFilter && log.service !== serviceFilter) return false;
-    if (
-      debouncedSearch &&
-      !log.message.toLowerCase().includes(debouncedSearch.toLowerCase())
-    )
-      return false;
+    if (serviceFilter && log.service !== serviceFilter)       return false;
+    if (debouncedSearch && !log.message.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
     return true;
   });
 
   const allLogs = isLive
-    ? [
-        ...filteredStream,
-        ...historicalLogs.filter(
-          (h) => !filteredStream.some((s) => s.id === h.id),
-        ),
-      ]
+    ? [...filteredStream, ...historicalLogs.filter((h) => !filteredStream.some((s) => s.id === h.id))]
     : historicalLogs;
 
-  const services = [
-    ...new Set(
-      [...historicalLogs, ...streamedLogs]
-        .map((l) => l.service)
-        .filter(Boolean),
-    ),
-  ];
+  const services = [...new Set([...historicalLogs, ...streamedLogs].map((l) => l.service).filter(Boolean))];
 
   return (
     <>
       <style>{CSS}</style>
       <div className="pl-shell">
 
+        {/* ── Nav — original, unchanged ── */}
         <div className="pl-nav">
-          <button
-            className="pl-nav-back"
-            onClick={() => navigate("/dashboard")}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+          <button className="pl-nav-back" onClick={() => navigate("/dashboard")}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
             Dashboard
@@ -669,52 +475,21 @@ const ProjectLogs = () => {
           <div className="pl-nav-right">
             <button
               className={`pl-live-btn ${isLive ? "live" : "paused"}`}
-              onClick={() => {
-                setIsLive((v) => !v);
-                if (!isLive) clearStream();
-              }}
+              onClick={() => { setIsLive((v) => !v); if (!isLive) clearStream(); }}
             >
-              <span
-                className="pl-live-dot"
-                style={{ background: isLive ? "#059669" : "#cbd5e1" }}
-              />
+              <span className="pl-live-dot" style={{ background: isLive ? "#059669" : "#cbd5e1" }} />
               {isLive ? "Live" : "Paused"}
             </button>
 
-            <button
-              className="pl-nav-btn"
-              onClick={() => navigate(`/projects/${projectId}/alerts`)}
-            >
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            <button className="pl-nav-btn" onClick={() => navigate(`/projects/${projectId}/alerts`)}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
               Alerts
             </button>
 
-            <button
-              className="pl-nav-btn"
-              onClick={() => navigate(`/projects/${projectId}/settings`)}
-            >
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+            <button className="pl-nav-btn" onClick={() => navigate(`/projects/${projectId}/settings`)}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
@@ -723,7 +498,7 @@ const ProjectLogs = () => {
           </div>
         </div>
 
-        {/* ── Tabs — unchanged ── */}
+        {/* ── Tabs — original, unchanged ── */}
         <div className="pl-tabs">
           {["logs", "clusters"].map((tab) => (
             <button
@@ -738,110 +513,62 @@ const ProjectLogs = () => {
 
         {activeTab === "logs" && (
           <>
-            {/* ── Insight strip: collapsible + resizable ── */}
-            <InsightPanel
-              projectId={projectId}
-              onTimeRangeChange={handleTimeRangeChange}
-            />
+            {/* ── Insight strip: drag the bottom edge to resize ── */}
+            <InsightPanel projectId={projectId} onTimeRangeChange={handleTimeRangeChange} />
 
+            {/* ── NaturalQueryBar — unchanged ── */}
+            <div style={{ padding: "10px 20px", borderBottom: "1px solid #e2e8f0", background: "#fff", flexShrink: 0 }}>
+              <NaturalQueryBar onQuery={handleNaturalQuery} loading={queryLoading} />
+            </div>
 
-            <CollapsiblePanel open={nqbOpen} innerRef={nqbInnerRef}>
-              <div
-                ref={nqbInnerRef}
-                style={{ padding: "10px 20px", position: "relative" }}
-              >
-                <CollapseToggle
-                  open={nqbOpen}
-                  onToggle={() => setNqbOpen((v) => !v)}
-                  label="AI query"
-                />
-                <NaturalQueryBar
-                  onQuery={handleNaturalQuery}
-                  loading={queryLoading}
+            {/* ── Filter bar — unchanged ── */}
+            <div className="pl-filter-bar">
+              <div className="pl-search-wrap">
+                <svg className="pl-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Filter by keyword…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-search"
                 />
               </div>
-            </CollapsiblePanel>
 
-            {/* ── Filter bar: collapsible ── */}
-            <CollapsiblePanel open={filterOpen} innerRef={filterInnerRef}>
-              <div ref={filterInnerRef} className="pl-filter-bar">
-                <CollapseToggle
-                  open={filterOpen}
-                  onToggle={() => setFilterOpen((v) => !v)}
-                  label="filters"
-                />
-
-                <div className="pl-search-wrap">
-                  <svg
-                    className="pl-search-icon"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#94a3b8"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder="Filter by keyword…"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-search"
-                  />
-                </div>
-
-                <div style={{ display: "flex", gap: 5 }}>
-                  {LEVELS.map((level) => {
-                    const active = levelFilter.has(level);
-                    const s = active ? LEVEL_PILL_ACTIVE[level] : null;
-                    return (
-                      <button
-                        key={level}
-                        onClick={() => toggleLevel(level)}
-                        className="pl-level-pill"
-                        style={
-                          active
-                            ? {
-                                background: s.bg,
-                                color: s.color,
-                                borderColor: s.border,
-                              }
-                            : {
-                                background: "#f8fafc",
-                                color: "#94a3b8",
-                                borderColor: "#e2e8f0",
-                              }
-                        }
-                      >
-                        {level}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {services.length > 0 && (
-                  <select
-                    value={serviceFilter}
-                    onChange={(e) => setServiceFilter(e.target.value)}
-                    className="pl-service-select"
-                  >
-                    <option value="">All services</option>
-                    {services.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                )}
+              <div style={{ display: "flex", gap: 5 }}>
+                {LEVELS.map((level) => {
+                  const active = levelFilter.has(level);
+                  const s = active ? LEVEL_PILL_ACTIVE[level] : null;
+                  return (
+                    <button
+                      key={level}
+                      onClick={() => toggleLevel(level)}
+                      className="pl-level-pill"
+                      style={active
+                        ? { background: s.bg, color: s.color, borderColor: s.border }
+                        : { background: "#f8fafc", color: "#94a3b8", borderColor: "#e2e8f0" }
+                      }
+                    >
+                      {level}
+                    </button>
+                  );
+                })}
               </div>
-            </CollapsiblePanel>
 
+              {services.length > 0 && (
+                <select
+                  value={serviceFilter}
+                  onChange={(e) => setServiceFilter(e.target.value)}
+                  className="pl-service-select"
+                >
+                  <option value="">All services</option>
+                  {services.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
+            </div>
 
+            {/* ── Log list — takes all remaining height ── */}
             <div className="pl-log-list">
               {loading && historicalLogs.length === 0 ? (
                 <div className="pl-loading">
@@ -850,16 +577,7 @@ const ProjectLogs = () => {
                 </div>
               ) : allLogs.length === 0 ? (
                 <div className="pl-empty">
-                  <svg
-                    width="28"
-                    height="28"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#cbd5e1"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" />
@@ -869,28 +587,15 @@ const ProjectLogs = () => {
                 </div>
               ) : (
                 allLogs.map((log, i) => (
-                  <LogRow
-                    key={log.id || i}
-                    log={log}
-                    onClick={setSelectedLog}
-                  />
+                  <LogRow key={log.id || i} log={log} onClick={setSelectedLog} />
                 ))
               )}
             </div>
 
-
+            {/* ── Status bar — unchanged ── */}
             <div className="pl-statusbar">
               <span>
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <polyline points="14 2 14 8 20 8" />
                 </svg>
@@ -898,16 +603,7 @@ const ProjectLogs = () => {
               </span>
               {isLive && (
                 <span style={{ color: "#059669" }}>
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      background: "#059669",
-                      display: "inline-block",
-                      marginRight: 4,
-                    }}
-                  />
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#059669", display: "inline-block", marginRight: 4 }} />
                   streaming live
                 </span>
               )}
@@ -916,15 +612,7 @@ const ProjectLogs = () => {
                   filtered by level
                   <button
                     onClick={() => setLevelFilter(new Set())}
-                    style={{
-                      marginLeft: 6,
-                      fontSize: 10,
-                      color: "#94a3b8",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                    }}
+                    style={{ marginLeft: 6, fontSize: 10, color: "#94a3b8", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
                   >
                     clear
                   </button>
@@ -946,28 +634,14 @@ const ProjectLogs = () => {
               </div>
             ) : clusters.length === 0 ? (
               <div className="pl-empty">
-                <svg
-                  width="28"
-                  height="28"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#cbd5e1"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                  <polyline points="22 4 12 14.01 9 11.01" />
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
                 </svg>
                 No recurring errors in the last 24 hours
               </div>
             ) : (
               clusters.map((cluster) => (
-                <ClusterCard
-                  key={cluster.id}
-                  cluster={cluster}
-                  onAnalyze={handleAnalyzeCluster}
-                />
+                <ClusterCard key={cluster.id} cluster={cluster} onAnalyze={handleAnalyzeCluster} />
               ))
             )}
           </div>
