@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   getLogs,
@@ -93,6 +93,7 @@ const CSS = `
     transition: color 0.15s, border-color 0.15s, background 0.15s;
   }
   .pl-nav-btn:hover { color: #0f172a; border-color: #cbd5e1; background: #f1f5f9; }
+  .pl-nav-btn.active { color: #0d9488; border-color: #99f6e4; background: #f0fdfa; }
   .pl-live-btn {
     display: flex;
     align-items: center;
@@ -150,6 +151,116 @@ const CSS = `
   .pl-tab:hover:not(.active) { color: #475569; }
 
 
+  /* ── Insight panel (resizable) ─────────────────────────── */
+  .pl-insight-panel {
+    flex-shrink: 0;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    overflow: hidden;
+    transition: background 0.12s;
+    position: relative;
+  }
+  .pl-insight-panel.collapsed {
+    border-bottom-color: transparent;
+  }
+  .pl-insight-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background 0.12s;
+  }
+  .pl-insight-header:hover { background: #f8fafc; }
+  .pl-insight-header.collapsed { border-bottom-color: transparent; }
+  .pl-insight-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  .pl-insight-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pl-insight-hint {
+    font-size: 10px;
+    color: #cbd5e1;
+    font-style: italic;
+  }
+  .pl-collapse-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #94a3b8;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 3px 8px;
+    border-radius: 5px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .pl-collapse-btn:hover { color: #0d9488; background: #f0fdfa; }
+  .pl-collapse-chevron {
+    transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+    display: flex;
+    align-items: center;
+  }
+  .pl-collapse-chevron.open { transform: rotate(180deg); }
+
+  .pl-insight-body {
+    overflow: hidden;
+    transition: height 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  .pl-insight-content {
+    padding: 0 0 4px;
+  }
+
+  /* ── Insight resize handle ─────────────────────────────── */
+  .pl-insight-resize {
+    height: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: row-resize;
+    position: relative;
+    flex-shrink: 0;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background 0.12s;
+  }
+  .pl-insight-resize:hover { background: #f0fdfa; }
+  .pl-insight-resize.dragging { background: #f0fdfa; }
+  .pl-insight-resize-bar {
+    width: 32px;
+    height: 3px;
+    background: #e2e8f0;
+    border-radius: 99px;
+    transition: background 0.15s, width 0.15s;
+  }
+  .pl-insight-resize:hover .pl-insight-resize-bar,
+  .pl-insight-resize.dragging .pl-insight-resize-bar {
+    background: #14b8a6;
+    width: 48px;
+  }
+
+  /* ── Filter bar (collapsible) ──────────────────────────── */
+  .pl-filter-bar-wrap {
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: height 0.25s cubic-bezier(0.4,0,0.2,1);
+    background: #fff;
+  }
   .pl-filter-bar {
     display: flex;
     align-items: center;
@@ -209,10 +320,21 @@ const CSS = `
   }
   .pl-service-select:focus { border-color: #14b8a6; }
 
+  /* ── NaturalQueryBar wrapper ───────────────────────────── */
+  .pl-nqb-wrap {
+    padding: 10px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fff;
+    flex-shrink: 0;
+    overflow: hidden;
+    transition: height 0.25s cubic-bezier(0.4,0,0.2,1);
+  }
+
   .pl-log-list {
     flex: 1;
     overflow-y: auto;
     background: #ffffff;
+    min-height: 0;
   }
   .pl-log-list::-webkit-scrollbar { width: 6px; }
   .pl-log-list::-webkit-scrollbar-track { background: #f8fafc; }
@@ -240,6 +362,7 @@ const CSS = `
     overflow-y: auto;
     padding: 20px;
     background: #f4f6f9;
+    min-height: 0;
   }
   .pl-clusters::-webkit-scrollbar { width: 6px; }
   .pl-clusters::-webkit-scrollbar-track { background: #f8fafc; }
@@ -279,6 +402,157 @@ const LEVEL_PILL_ACTIVE = {
   fatal: { bg: "#fff1f2", color: "#9f1239", border: "#fda4af" },
 };
 
+const INSIGHT_MIN_H  = 60;
+const INSIGHT_DEFAULT_H = 200;
+
+
+
+const InsightPanel = ({ projectId, onTimeRangeChange }) => {
+  const [open, setOpen] = useState(true);
+  const [panelH, setPanelH] = useState(INSIGHT_DEFAULT_H);
+  const bodyRef   = useRef(null);
+  const dragging  = useRef(false);
+  const startY    = useRef(0);
+  const startH    = useRef(0);
+  const handleRef = useRef(null);
+
+
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    bodyRef.current.style.height = open ? `${panelH}px` : '0px';
+  }, [open, panelH]);
+
+  const onResizePointerDown = useCallback((e) => {
+    if (!open) return;
+    e.preventDefault();
+    dragging.current = true;
+    startY.current  = e.clientY;
+    startH.current  = panelH;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.classList.add('dragging');
+  }, [open, panelH]);
+
+  const onResizePointerMove = useCallback((e) => {
+    if (!dragging.current) return;
+    const delta = e.clientY - startY.current;
+    const newH  = Math.max(INSIGHT_MIN_H, startH.current + delta);
+    setPanelH(newH);
+    if (bodyRef.current) {
+      bodyRef.current.style.height = `${newH}px`;
+      bodyRef.current.style.transition = 'none';
+    }
+  }, []);
+
+  const onResizePointerUp = useCallback((e) => {
+    dragging.current = false;
+    if (bodyRef.current) bodyRef.current.style.transition = '';
+    e.currentTarget.classList.remove('dragging');
+  }, []);
+
+  return (
+    <>
+
+      <div
+        className={`pl-insight-header${!open ? ' collapsed' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="pl-insight-title">Insights & Timeline</span>
+        <div className="pl-insight-header-right">
+          {open && <span className="pl-insight-hint">drag ↕ bottom edge to resize</span>}
+          <button
+            className="pl-collapse-btn"
+            onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+          >
+            <span className={`pl-collapse-chevron${open ? ' open' : ''}`}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </span>
+            {open ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
+      </div>
+
+
+      <div
+        ref={bodyRef}
+        className="pl-insight-body"
+        style={{ height: open ? `${panelH}px` : '0px', overflowY: open ? 'auto' : 'hidden' }}
+      >
+        <div className="pl-insight-content">
+          <LogsInsightStrip projectId={projectId} onTimeRangeChange={onTimeRangeChange} />
+        </div>
+      </div>
+
+
+      {open && (
+        <div
+          ref={handleRef}
+          className="pl-insight-resize"
+          onPointerDown={onResizePointerDown}
+          onPointerMove={onResizePointerMove}
+          onPointerUp={onResizePointerUp}
+          title="Drag to resize insights panel"
+        >
+          <div className="pl-insight-resize-bar" />
+        </div>
+      )}
+    </>
+  );
+};
+
+
+
+const FilterBarWrap = ({ open, children }) => {
+  const wrapRef  = useRef(null);
+  const innerRef = useRef(null);
+
+  useEffect(() => {
+    if (!wrapRef.current || !innerRef.current) return;
+    if (open) {
+      const h = innerRef.current.scrollHeight;
+      wrapRef.current.style.height = `${h}px`;
+    } else {
+      wrapRef.current.style.height = '0px';
+    }
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="pl-filter-bar-wrap" style={{ height: open ? 'auto' : '0px' }}>
+      <div ref={innerRef}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+
+
+const NQBWrap = ({ open, children }) => {
+  const wrapRef  = useRef(null);
+  const innerRef = useRef(null);
+
+  useEffect(() => {
+    if (!wrapRef.current || !innerRef.current) return;
+    if (open) {
+      const h = innerRef.current.scrollHeight;
+      wrapRef.current.style.height = `${h}px`;
+    } else {
+      wrapRef.current.style.height = '0px';
+    }
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="pl-nqb-wrap" style={{ height: open ? 'auto' : '0px', padding: open ? undefined : '0 20px', borderBottom: open ? undefined : 'none' }}>
+      <div ref={innerRef} style={{ padding: open ? undefined : '0' }}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+
+
 const ProjectLogs = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -299,6 +573,10 @@ const ProjectLogs = () => {
 
   const [clusters,        setClusters]        = useState([]);
   const [clustersLoading, setClustersLoading] = useState(false);
+
+
+  const [showFilters,  setShowFilters]  = useState(true);
+  const [showNQB,      setShowNQB]      = useState(true);
 
   const { streamedLogs, clearStream } = useLogStream(projectId, isLive);
 
@@ -398,6 +676,7 @@ const ProjectLogs = () => {
       <div className="pl-shell">
 
 
+
         <div className="pl-nav">
           <button className="pl-nav-back" onClick={() => navigate("/dashboard")}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -417,6 +696,33 @@ const ProjectLogs = () => {
               {isLive ? "Live" : "Paused"}
             </button>
 
+
+            {activeTab === "logs" && (
+              <>
+                <button
+                  className={`pl-nav-btn${showNQB ? ' active' : ''}`}
+                  onClick={() => setShowNQB((v) => !v)}
+                  title="Toggle AI query bar"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    <path d="M11 8v6M8 11h6" />
+                  </svg>
+                  AI Query
+                </button>
+                <button
+                  className={`pl-nav-btn${showFilters ? ' active' : ''}`}
+                  onClick={() => setShowFilters((v) => !v)}
+                  title="Toggle filter bar"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                  </svg>
+                  Filters
+                </button>
+              </>
+            )}
+
             <button className="pl-nav-btn" onClick={() => navigate(`/projects/${projectId}/alerts`)}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
@@ -435,6 +741,7 @@ const ProjectLogs = () => {
         </div>
 
 
+
         <div className="pl-tabs">
           {["logs", "clusters"].map((tab) => (
             <button
@@ -450,57 +757,63 @@ const ProjectLogs = () => {
 
         {activeTab === "logs" && (
           <>
-            <LogsInsightStrip projectId={projectId} onTimeRangeChange={handleTimeRangeChange} />
 
-            <div style={{ padding: "10px 20px", borderBottom: "1px solid #e2e8f0", background: "#fff", flexShrink: 0 }}>
+            <InsightPanel projectId={projectId} onTimeRangeChange={handleTimeRangeChange} />
+
+
+            <NQBWrap open={showNQB}>
               <NaturalQueryBar onQuery={handleNaturalQuery} loading={queryLoading} />
-            </div>
+            </NQBWrap>
 
-            <div className="pl-filter-bar">
-              <div className="pl-search-wrap">
-                <svg className="pl-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Filter by keyword…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-search"
-                />
+
+            <FilterBarWrap open={showFilters}>
+              <div className="pl-filter-bar">
+                <div className="pl-search-wrap">
+                  <svg className="pl-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Filter by keyword…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-search"
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: 5 }}>
+                  {LEVELS.map((level) => {
+                    const active = levelFilter.has(level);
+                    const s = active ? LEVEL_PILL_ACTIVE[level] : null;
+                    return (
+                      <button
+                        key={level}
+                        onClick={() => toggleLevel(level)}
+                        className="pl-level-pill"
+                        style={active
+                          ? { background: s.bg, color: s.color, borderColor: s.border }
+                          : { background: "#f8fafc", color: "#94a3b8", borderColor: "#e2e8f0" }
+                        }
+                      >
+                        {level}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {services.length > 0 && (
+                  <select
+                    value={serviceFilter}
+                    onChange={(e) => setServiceFilter(e.target.value)}
+                    className="pl-service-select"
+                  >
+                    <option value="">All services</option>
+                    {services.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                )}
               </div>
+            </FilterBarWrap>
 
-              <div style={{ display: "flex", gap: 5 }}>
-                {LEVELS.map((level) => {
-                  const active = levelFilter.has(level);
-                  const s = active ? LEVEL_PILL_ACTIVE[level] : null;
-                  return (
-                    <button
-                      key={level}
-                      onClick={() => toggleLevel(level)}
-                      className="pl-level-pill"
-                      style={active
-                        ? { background: s.bg, color: s.color, borderColor: s.border }
-                        : { background: "#f8fafc", color: "#94a3b8", borderColor: "#e2e8f0" }
-                      }
-                    >
-                      {level}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {services.length > 0 && (
-                <select
-                  value={serviceFilter}
-                  onChange={(e) => setServiceFilter(e.target.value)}
-                  className="pl-service-select"
-                >
-                  <option value="">All services</option>
-                  {services.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              )}
-            </div>
 
 
             <div className="pl-log-list">
@@ -527,6 +840,7 @@ const ProjectLogs = () => {
             </div>
 
 
+
             <div className="pl-statusbar">
               <span>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -549,6 +863,19 @@ const ProjectLogs = () => {
                     style={{ marginLeft: 6, fontSize: 10, color: "#94a3b8", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
                   >
                     clear
+                  </button>
+                </span>
+              )}
+
+              {(!showFilters || !showNQB) && (
+                <span style={{ marginLeft: 'auto', color: '#cbd5e1' }}>
+                  {!showFilters && !showNQB ? 'Filters & AI Query hidden' : !showFilters ? 'Filters hidden' : 'AI Query hidden'}
+                  {' · '}
+                  <button
+                    onClick={() => { setShowFilters(true); setShowNQB(true); }}
+                    style={{ fontSize: 10, color: '#0d9488', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    show all
                   </button>
                 </span>
               )}
